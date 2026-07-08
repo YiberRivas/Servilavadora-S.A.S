@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import { Card, Text, useTheme, IconButton, Avatar } from 'react-native-paper';
+import { Card, Text, useTheme, IconButton } from 'react-native-paper';
+import { radii, shadows } from '../../theme';
 
 export default function CompanyCard({ company, onPress }) {
   const { colors } = useTheme();
@@ -11,13 +12,15 @@ export default function CompanyCard({ company, onPress }) {
         <View style={styles.row}>
           <Image source={{ uri: company.image }} style={styles.image} />
           <View style={styles.info}>
-            <Text variant="titleSmall" style={styles.name} numberOfLines={1}>{company.name}</Text>
-            <Text variant="bodySmall" style={{ color: colors.onSurfaceVariant }} numberOfLines={2}>
+            <Text variant="titleSmall" style={[styles.name, { color: colors.onBackground }]} numberOfLines={1}>
+              {company.name}
+            </Text>
+            <Text variant="bodySmall" style={[styles.description, { color: colors.onSurfaceVariant }]} numberOfLines={2}>
               {company.description}
             </Text>
             <View style={styles.ratingRow}>
-              <IconButton icon="star" size={14} iconColor="#FFC145" style={styles.starIcon} />
-              <Text variant="bodySmall" style={{ fontWeight: '600', color: colors.onSurface }}>{company.rating}</Text>
+              <IconButton icon="star" size={14} iconColor={colors.primary} style={styles.starIcon} />
+              <Text variant="bodySmall" style={[styles.rating, { color: colors.onBackground }]}>{company.rating}</Text>
             </View>
           </View>
         </View>
@@ -29,35 +32,42 @@ export default function CompanyCard({ company, onPress }) {
 const styles = StyleSheet.create({
   card: {
     marginBottom: 12,
-    borderRadius: 12,
-    elevation: 2,
+    borderRadius: radii.lg,
+    ...shadows.sm,
   },
   row: {
     flexDirection: 'row',
-    padding: 12,
+    padding: 16,
   },
   image: {
-    width: 80,
-    height: 80,
-    borderRadius: 12,
-    marginRight: 12,
+    width: 72,
+    height: 72,
+    borderRadius: radii.md,
+    marginRight: 14,
   },
   info: {
     flex: 1,
     justifyContent: 'center',
   },
   name: {
-    fontWeight: '700',
+    fontWeight: '600',
     marginBottom: 4,
+  },
+  description: {
+    lineHeight: 18,
+    marginBottom: 6,
   },
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 4,
   },
   starIcon: {
     margin: 0,
     width: 20,
     height: 20,
+  },
+  rating: {
+    fontWeight: '600',
+    fontSize: 13,
   },
 });

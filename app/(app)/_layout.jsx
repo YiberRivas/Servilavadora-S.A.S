@@ -1,66 +1,64 @@
 import React from 'react';
+import { View } from 'react-native';
 import { Tabs } from 'expo-router';
-import { useTheme } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
+import { colors } from '../../src/theme';
+
+const tabs = [
+  { name: 'index', label: 'Inicio', iconFocused: 'home', iconUnfocused: 'home-outline' },
+  { name: 'services', label: 'Servicios', iconFocused: 'layers', iconUnfocused: 'layers-outline' },
+  { name: 'companies', label: 'Empresas', iconFocused: 'storefront', iconUnfocused: 'storefront-outline' },
+  { name: 'profile', label: 'Perfil', iconFocused: 'person-circle', iconUnfocused: 'person-circle-outline' },
+];
 
 export default function AppLayout() {
-  const { colors } = useTheme();
-
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.onSurfaceVariant,
+        tabBarActiveTintColor: colors.accent,
+        tabBarInactiveTintColor: colors.gray400,
         tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.outline,
-          borderTopWidth: 1,
+          backgroundColor: 'rgba(255,255,255,0.92)',
+          borderTopColor: colors.gray100,
+          borderTopWidth: 0.5,
+          height: 60,
           paddingBottom: 8,
-          paddingTop: 8,
-          height: 64,
+          paddingTop: 6,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
-          fontWeight: '600',
+          fontFamily: 'Inter_600SemiBold',
+          fontSize: 10,
+          letterSpacing: 0.3,
+          marginTop: 2,
+        },
+        tabBarItemStyle: {
+          gap: 0,
+          paddingTop: 2,
+        },
+        tabBarIconStyle: {
+          marginBottom: 0,
         },
       }}
     >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Inicio',
-          tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="companies"
-        options={{
-          title: 'Empresas',
-          tabBarIcon: ({ color, size }) => <Ionicons name="business-outline" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="services"
-        options={{
-          title: 'Servicios',
-          tabBarIcon: ({ color, size }) => <Ionicons name="calendar-outline" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="history"
-        options={{
-          title: 'Historial',
-          tabBarIcon: ({ color, size }) => <Ionicons name="time-outline" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: 'Perfil',
-          tabBarIcon: ({ color, size }) => <Ionicons name="person-outline" size={size} color={color} />,
-        }}
-      />
+      {tabs.map((tab) => (
+        <Tabs.Screen
+          key={tab.name}
+          name={tab.name}
+          options={{
+            title: tab.label,
+            tabBarIcon: ({ focused, color }) => (
+              <View style={{ alignItems: 'center', justifyContent: 'center', height: 28 }}>
+                <Ionicons
+                  name={focused ? tab.iconFocused : tab.iconUnfocused}
+                  size={22}
+                  color={color}
+                />
+              </View>
+            ),
+          }}
+        />
+      ))}
     </Tabs>
   );
 }

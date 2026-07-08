@@ -1,5 +1,6 @@
 import React from 'react';
 import { TextInput, useTheme } from 'react-native-paper';
+import { radii } from '../../theme';
 
 export default function AppInput({ label, value, onChangeText, error, secureTextEntry, keyboardType, autoCapitalize, multiline, numberOfLines, disabled, placeholder, icon, onBlur }) {
   const { colors } = useTheme();
@@ -20,8 +21,11 @@ export default function AppInput({ label, value, onChangeText, error, secureText
       left={icon ? <TextInput.Icon icon={icon} /> : undefined}
       onBlur={onBlur}
       mode="outlined"
-      style={{ backgroundColor: colors.surface, marginBottom: 12 }}
-      outlineStyle={{ borderRadius: 10, borderWidth: 1.5 }}
+      outlineColor={colors.outline}
+      activeOutlineColor={colors.primary}
+      style={{ backgroundColor: colors.surface }}
+      outlineStyle={{ borderRadius: radii.md, borderWidth: 1.5 }}
+      contentStyle={{ fontSize: 15 }}
     />
   );
 }

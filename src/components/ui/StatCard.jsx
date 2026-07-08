@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Card, Text, Icon, useTheme } from 'react-native-paper';
+import { radii, shadows } from '../../theme';
 
 export default function StatCard({ icon, value, label, color }) {
   const { colors } = useTheme();
@@ -10,9 +11,9 @@ export default function StatCard({ icon, value, label, color }) {
     <Card style={[styles.card, { backgroundColor: colors.surface }]}>
       <Card.Content style={styles.content}>
         <View style={[styles.iconContainer, { backgroundColor: iconColor + '15' }]}>
-          <Icon source={icon} size={28} color={iconColor} />
+          <Icon source={icon} size={24} color={iconColor} />
         </View>
-        <Text variant="headlineSmall" style={[styles.value, { color: colors.onSurface }]}>{value}</Text>
+        <Text variant="headlineSmall" style={[styles.value, { color: colors.onBackground }]}>{value}</Text>
         <Text variant="bodySmall" style={[styles.label, { color: colors.onSurfaceVariant }]}>{label}</Text>
       </Card.Content>
     </Card>
@@ -21,26 +22,27 @@ export default function StatCard({ icon, value, label, color }) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    elevation: 2,
+    borderRadius: radii.lg,
+    ...shadows.sm,
   },
   content: {
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: 20,
   },
   iconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: radii.md,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   value: {
-    fontWeight: '700',
+    fontWeight: '600',
   },
   label: {
     marginTop: 4,
     textAlign: 'center',
+    fontSize: 13,
   },
 });

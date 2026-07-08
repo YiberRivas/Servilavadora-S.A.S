@@ -9,7 +9,7 @@ export default function EmptyState({ icon = 'inbox-outline', title, message }) {
     <View style={styles.container}>
       <Icon source={icon} size={64} color={colors.onSurfaceVariant} />
       {title && (
-        <Text variant="titleMedium" style={[styles.title, { color: colors.onSurface }]}>
+        <Text variant="titleMedium" style={[styles.title, { color: colors.onBackground }]}>
           {title}
         </Text>
       )}

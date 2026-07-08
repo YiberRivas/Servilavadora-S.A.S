@@ -1,3 +1,6 @@
 {
-  "urlRandomness": "JDMz1us"
+  "urlRandomness": "JDMz1us",
+  "dev": true,
+  "minify": false,
+  "https": false
 }

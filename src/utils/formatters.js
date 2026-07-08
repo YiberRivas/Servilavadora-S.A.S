@@ -12,6 +12,14 @@ export const formatDate = (date) => {
   });
 };
 
+export const formatMinutes = (minutes) => {
+  if (!minutes) return '—';
+  if (minutes < 60) return `${minutes} min`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+};
+
 export const formatTime = (seconds) => {
   if (!seconds || isNaN(seconds)) return '0m 0s';
   const mins = Math.floor(seconds / 60);

@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ServiLavadora — Encuentra el servicio de lavado ideal</title>
+<meta name="description" content="ServiLavadora conecta a personas y empresas con servicios de lavado verificados: lavado por carga, lavado express, recogida a domicilio, planchado y más.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- Checkbox hack para menú móvil (sin JavaScript) -->
+<input type="checkbox" id="nav-toggle" class="nav-toggle-input" aria-hidden="true">
+
+<!-- ===================== HEADER ===================== -->
+<header class="site-header">
+  <div class="container header-inner">
+    <a href="#" class="logo" aria-label="ServiLavadora — inicio">
+      <span class="logo-mark" aria-hidden="true">
+        <svg viewBox="0 0 40 40" width="36" height="36" fill="none">
+          <circle cx="20" cy="20" r="19" stroke="currentColor" stroke-width="2"/>
+          <circle cx="20" cy="20" r="12" stroke="currentColor" stroke-width="2" stroke-dasharray="4 5"/>
+          <circle cx="20" cy="20" r="5" fill="currentColor"/>
+        </svg>
+      </span>
+      <span class="logo-text">Servi<strong>Lavadora</strong></span>
+    </a>
+
+    <nav class="main-nav" aria-label="Navegación principal">
+      <ul>
+        <li><a href="#categorias">Servicios</a></li>
+        <li><a href="#empresas">Empresas</a></li>
+        <li><a href="#como-funciona">Cómo funciona</a></li>
+        <li><a href="#opiniones">Opiniones</a></li>
+      </ul>
+    </nav>
+
+    <div class="header-actions">
+      <a href="#" class="btn btn-ghost">Iniciar sesión</a>
+      <a href="#" class="btn btn-primary">Registrarse</a>
+    </div>
+
+    <label for="nav-toggle" class="nav-toggle-btn" aria-label="Abrir menú">
+      <span></span><span></span><span></span>
+    </label>
+  </div>
+
+  <!-- Menú móvil -->
+  <div class="mobile-nav">
+    <ul>
+      <li><a href="#categorias">Servicios</a></li>
+      <li><a href="#empresas">Empresas</a></li>
+      <li><a href="#como-funciona">Cómo funciona</a></li>
+      <li><a href="#opiniones">Opiniones</a></li>
+    </ul>
+    <div class="mobile-nav-actions">
+      <a href="#" class="btn btn-ghost btn-block">Iniciar sesión</a>
+      <a href="#" class="btn btn-primary btn-block">Registrarse</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- ===================== HERO ===================== -->
+  <section class="hero">
+    <div class="hero-blob hero-blob--one" aria-hidden="true"></div>
+    <div class="hero-blob hero-blob--two" aria-hidden="true"></div>
+
+    <div class="container hero-inner">
+      <div class="hero-copy">
+        <p class="eyebrow">Marketplace de servicios de lavado</p>
+        <h1>Tu ropa, sin complicaciones.</h1>
+        <p class="hero-subtitle">
+          Conecta con lavanderías y empresas de lavado verificadas cerca de ti.
+          Compara precios, reserva en minutos y recibe tu ropa lista cuando la necesites.
+        </p>
+
+        <form class="search-panel" role="search" aria-label="Buscar servicios de lavado">
+          <div class="search-field">
+            <label for="search-service">Servicio</label>
+            <input type="text" id="search-service" name="service" placeholder="¿Qué necesitas lavar?">
+          </div>
+          <div class="search-divider" aria-hidden="true"></div>
+          <div class="search-field">
+            <label for="search-city">Ciudad</label>
+            <select id="search-city" name="city">
+              <option value="">Selecciona tu ciudad</option>
+              <option>Bogotá</option>
+              <option>Medellín</option>
+              <option>Cali</option>
+              <option>Quibdó</option>
+              <option>Barranquilla</option>
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary search-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Buscar
+          </button>
+        </form>
+
+        <ul class="hero-trust">
+          <li><strong>+320</strong> empresas verificadas</li>
+          <li><strong>+18.000</strong> servicios completados</li>
+          <li><strong>4.8/5</strong> calificación promedio</li>
+        </ul>
+      </div>
+
+      <div class="hero-visual" aria-hidden="true">
+        <div class="drum">
+          <div class="drum-ring drum-ring--outer"></div>
+          <div class="drum-ring drum-ring--mid"></div>
+          <div class="drum-ring drum-ring--inner"></div>
+          <span class="bubble bubble--a"></span>
+          <span class="bubble bubble--b"></span>
+          <span class="bubble bubble--c"></span>
+          <span class="bubble bubble--d"></span>
+        </div>
+        <div class="visual-card visual-card--top">
+          <span class="visual-card-icon">✓</span>
+          <div>
+            <strong>Recogida programada</strong>
+            <span>Hoy, 4:30 p.m.</span>
+          </div>
+        </div>
+        <div class="visual-card visual-card--bottom">
+          <span class="visual-card-icon visual-card-icon--accent">★</span>
+          <div>
+            <strong>CleanHouse Bogotá</strong>
+            <span>4.9 · Entrega en 24h</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CATEGORÍAS ===================== -->
+  <section class="section" id="categorias">
+    <div class="container">
+      <div class="section-heading">
+        <p class="eyebrow">Servicios disponibles</p>
+        <h2>Un servicio de lavado para cada necesidad</h2>
+        <p class="section-subtitle">Elige la categoría que se ajuste a lo que necesitas y descubre empresas listas para atenderte.</p>
+      </div>
+
+      <div class="category-grid">
+        <a href="#" class="category-card">
+          <span class="category-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="2" width="18" height="20" rx="2.5"/><circle cx="12" cy="13" r="5"/><circle cx="12" cy="13" r="2"/><circle cx="7" cy="5.2" r=".6" fill="currentColor" stroke="none"/><circle cx="10" cy="5.2" r=".6" fill="currentColor" stroke="none"/></svg>
+          </span>
+          <h3>Lavado por carga</h3>
+          <p>Paga por kilo o por carga completa, sin sorpresas.</p>
+        </a>
+
+        <a href="#" class="category-card">
+          <span class="category-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 4 14 11 14 10 22 20 9 13 9 13 2"/></svg>
+          </span>
+          <h3>Lavado express</h3>
+          <p>Listo en pocas horas para cuando el tiempo apremia.</p>
+        </a>
+
+        <a href="#" class="category-card">
+          <span class="category-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
+          </span>
+          <h3>Lavadora a domicilio</h3>
+          <p>Alquila una lavadora y úsala en la comodidad de tu casa.</p>
+        </a>
+
+        <a href="#" class="category-card">
+          <span class="category-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="6" width="15" height="11" rx="1.5"/><path d="M16 10h3l4 4v3h-7z"/><circle cx="6" cy="19.5" r="1.8"/><circle cx="18.5" cy="19.5" r="1.8"/></svg>
+          </span>
+          <h3>Recogida y entrega</h3>
+          <p>Nosotros coordinamos el transporte de tu ropa, ida y vuelta.</p>
+        </a>
+
+        <a href="#" class="category-card">
+          <span class="category-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21h13"/><path d="M20 3s1 3-2 6-8 3-8 3l-5 5"/><path d="M13.5 8.5l2 2"/></svg>
+          </span>
+          <h3>Planchado</h3>
+          <p>Prendas impecables, listas para usar de inmediato.</p>
+        </a>
+
+        <a href="#" class="category-card">
+          <span class="category-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="2" y1="12" x2="22" y2="12"/></svg>
+          </span>
+          <h3>Lavado empresarial</h3>
+          <p>Convenios y volumen para hoteles, restaurantes y oficinas.</p>
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== EMPRESAS DESTACADAS ===================== -->
+  <section class="section section--tint" id="empresas">
+    <div class="container">
+      <div class="section-heading">
+        <p class="eyebrow">Empresas destacadas</p>
+        <h2>Empresas verificadas, listas para atenderte</h2>
+        <p class="section-subtitle">Compara calificación, precio y tiempo estimado antes de reservar.</p>
+      </div>
+
+      <div class="company-grid">
+        <article class="company-card">
+          <div class="company-card-top">
+            <span class="company-logo" style="--logo-a:#2D6CB5;--logo-b:#12A594;">CH</span>
+            <div>
+              <h3>CleanHouse</h3>
+              <span class="company-city">Bogotá</span>
+            </div>
+            <span class="company-rating"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/></svg>4.9</span>
+          </div>
+          <dl class="company-meta">
+            <div><dt>Desde</dt><dd>$14.000</dd></div>
+            <div><dt>Tiempo</dt><dd>24 h</dd></div>
+          </dl>
+          <a href="#" class="btn btn-outline btn-block">Ver detalles</a>
+        </article>
+
+        <article class="company-card">
+          <div class="company-card-top">
+            <span class="company-logo" style="--logo-a:#12A594;--logo-b:#2D6CB5;">LX</span>
+            <div>
+              <h3>LavaExpress</h3>
+              <span class="company-city">Medellín</span>
+            </div>
+            <span class="company-rating"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/></svg>4.7</span>
+          </div>
+          <dl class="company-meta">
+            <div><dt>Desde</dt><dd>$11.500</dd></div>
+            <div><dt>Tiempo</dt><dd>6 h</dd></div>
+          </dl>
+          <a href="#" class="btn btn-outline btn-block">Ver detalles</a>
+        </article>
+
+        <article class="company-card">
+          <div class="company-card-top">
+            <span class="company-logo" style="--logo-a:#1F4E79;--logo-b:#12A594;">PL</span>
+            <div>
+              <h3>Punto Limpio</h3>
+              <span class="company-city">Cali</span>
+            </div>
+            <span class="company-rating"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/></svg>4.8</span>
+          </div>
+          <dl class="company-meta">
+            <div><dt>Desde</dt><dd>$9.900</dd></div>
+            <div><dt>Tiempo</dt><dd>48 h</dd></div>
+          </dl>
+          <a href="#" class="btn btn-outline btn-block">Ver detalles</a>
+        </article>
+
+        <article class="company-card">
+          <div class="company-card-top">
+            <span class="company-logo" style="--logo-a:#2D6CB5;--logo-b:#1F4E79;">RD</span>
+            <div>
+              <h3>Ropa al Día</h3>
+              <span class="company-city">Quibdó</span>
+            </div>
+            <span class="company-rating"><svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87L18.18 21 12 17.77 5.82 21 7 14.14l-5-4.87 6.91-1.01z"/></svg>4.6</span>
+          </div>
+          <dl class="company-meta">
+            <div><dt>Desde</dt><dd>$13.000</dd></div>
+            <div><dt>Tiempo</dt><dd>24 h</dd></div>
+          </dl>
+          <a href="#" class="btn btn-outline btn-block">Ver detalles</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== BENEFICIOS ===================== -->
+  <section class="section" id="beneficios">
+    <div class="container">
+      <div class="section-heading">
+        <p class="eyebrow">¿Por qué ServiLavadora?</p>
+        <h2>Una forma más simple de resolver el lavado</h2>
+      </div>
+
+      <div class="benefit-grid">
+        <div class="benefit-item">
+          <span class="benefit-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg></span>
+          <h3>Empresas verificadas</h3>
+          <p>Cada empresa pasa por un proceso de validación antes de publicarse.</p>
+        </div>
+        <div class="benefit-item">
+          <span class="benefit-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span>
+          <h3>Reserva rápida</h3>
+          <p>Agenda tu servicio en menos de un minuto, sin llamadas ni filas.</p>
+        </div>
+        <div class="benefit-item">
+          <span class="benefit-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l3-4 3 2 5-6"/></svg></span>
+          <h3>Compara precios</h3>
+          <p>Revisa varias opciones y elige la que mejor se ajuste a tu presupuesto.</p>
+        </div>
+        <div class="benefit-item">
+          <span class="benefit-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 20l-5.5-5.5 1.4-1.4L9 17.2l10.1-10.1 1.4 1.4z" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="9"/></svg></span>
+          <h3>Seguimiento del servicio</h3>
+          <p>Sigue cada etapa: recogida, lavado, planchado y entrega.</p>
+        </div>
+        <div class="benefit-item">
+          <span class="benefit-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>
+          <h3>Pagos seguros</h3>
+          <p>Transacciones protegidas dentro de la plataforma, sin efectivo obligatorio.</p>
+        </div>
+        <div class="benefit-item">
+          <span class="benefit-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+          <h3>Atención confiable</h3>
+          <p>Soporte disponible para resolver cualquier inconveniente durante el servicio.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CÓMO FUNCIONA ===================== -->
+  <section class="section section--tint" id="como-funciona">
+    <div class="container">
+      <div class="section-heading">
+        <p class="eyebrow">El proceso</p>
+        <h2>Cómo funciona ServiLavadora</h2>
+        <p class="section-subtitle">Cuatro pasos entre tu ropa sucia y tu ropa lista.</p>
+      </div>
+
+      <ol class="steps">
+        <li class="step">
+          <span class="step-number">01</span>
+          <h3>Busca un servicio</h3>
+          <p>Indica qué necesitas y tu ciudad para ver las opciones disponibles.</p>
+        </li>
+        <li class="step">
+          <span class="step-number">02</span>
+          <h3>Compara empresas</h3>
+          <p>Revisa calificación, precio y tiempo estimado de cada una.</p>
+        </li>
+        <li class="step">
+          <span class="step-number">03</span>
+          <h3>Reserva</h3>
+          <p>Confirma el servicio y coordina la recogida o entrega.</p>
+        </li>
+        <li class="step">
+          <span class="step-number">04</span>
+          <h3>Disfruta del servicio</h3>
+          <p>Recibe tu ropa lista y califica tu experiencia.</p>
+        </li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- ===================== OPINIONES ===================== -->
+  <section class="section" id="opiniones">
+    <div class="container">
+      <div class="section-heading">
+        <p class="eyebrow">Opiniones</p>
+        <h2>Lo que dicen quienes ya lo usaron</h2>
+      </div>
+
+      <div class="testimonial-grid">
+        <figure class="testimonial-card">
+          <blockquote>“Reservé la recogida en la mañana y en la tarde ya tenía la ropa lista. Muy fácil de usar.”</blockquote>
+          <figcaption>
+            <span class="avatar" style="--logo-a:#2D6CB5;--logo-b:#12A594;">MA</span>
+            <div><strong>María Andrade</strong><span>Bogotá</span></div>
+          </figcaption>
+        </figure>
+        <figure class="testimonial-card">
+          <blockquote>“Como hotel, necesitábamos un proveedor de confianza para el lavado de lencería. ServiLavadora nos conectó con la empresa ideal.”</blockquote>
+          <figcaption>
+            <span class="avatar" style="--logo-a:#1F4E79;--logo-b:#2D6CB5;">JC</span>
+            <div><strong>Juliana Castro</strong><span>Hotel Cali Plaza</span></div>
+          </figcaption>
+        </figure>
+        <figure class="testimonial-card">
+          <blockquote>“Comparé tres empresas en minutos y elegí la que mejor precio y calificación tenía. Volveré a usarlo.”</blockquote>
+          <figcaption>
+            <span class="avatar" style="--logo-a:#12A594;--logo-b:#1F4E79;">DR</span>
+            <div><strong>Daniel Rentería</strong><span>Quibdó</span></div>
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CTA FINAL ===================== -->
+  <section class="cta-final">
+    <div class="container cta-final-inner">
+      <h2>Empieza a ahorrar tiempo con tu lavado</h2>
+      <p>Únete gratis y descubre empresas de lavado verificadas en tu ciudad.</p>
+      <a href="#" class="btn btn-white">Crear cuenta gratis</a>
+    </div>
+  </section>
+</main>
+
+<!-- ===================== FOOTER ===================== -->
+<footer class="site-footer">
+  <div class="container footer-inner">
+    <div class="footer-brand">
+      <a href="#" class="logo">
+        <span class="logo-mark" aria-hidden="true">
+          <svg viewBox="0 0 40 40" width="32" height="32" fill="none">
+            <circle cx="20" cy="20" r="19" stroke="currentColor" stroke-width="2"/>
+            <circle cx="20" cy="20" r="12" stroke="currentColor" stroke-width="2" stroke-dasharray="4 5"/>
+            <circle cx="20" cy="20" r="5" fill="currentColor"/>
+          </svg>
+        </span>
+        <span class="logo-text">Servi<strong>Lavadora</strong></span>
+      </a>
+      <p>El marketplace de servicios de lavado en Colombia.</p>
+    </div>
+
+    <nav class="footer-col" aria-label="Enlaces rápidos">
+      <h4>Enlaces rápidos</h4>
+      <ul>
+        <li><a href="#categorias">Servicios</a></li>
+        <li><a href="#empresas">Empresas</a></li>
+        <li><a href="#como-funciona">Cómo funciona</a></li>
+        <li><a href="#opiniones">Opiniones</a></li>
+      </ul>
+    </nav>
+
+    <div class="footer-col">
+      <h4>Contacto</h4>
+      <ul>
+        <li><a href="mailto:hola@servilavadora.co">hola@servilavadora.co</a></li>
+        <li><a href="tel:+576011234567">+57 601 123 4567</a></li>
+        <li>Bogotá, Colombia</li>
+      </ul>
+    </div>
+
+    <div class="footer-col">
+      <h4>Síguenos</h4>
+      <ul class="social-list">
+        <li><a href="#" aria-label="Instagram"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/></svg></a></li>
+        <li><a href="#" aria-label="Facebook"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M15 8h2V4h-2a4 4 0 0 0-4 4v2H9v4h2v6h4v-6h2.5l.5-4H15V8z"/></svg></a></li>
+        <li><a href="#" aria-label="LinkedIn"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="7.5" y1="10" x2="7.5" y2="17"/><circle cx="7.5" cy="6.8" r=".9" fill="currentColor" stroke="none"/><path d="M11.5 17v-4a2.3 2.3 0 0 1 4.6 0v4"/><line x1="11.5" y1="10" x2="11.5" y2="17"/></svg></a></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="container footer-bottom">
+    <p>© 2026 ServiLavadora. Todos los derechos reservados.</p>
+    <ul>
+      <li><a href="#">Términos</a></li>
+      <li><a href="#">Privacidad</a></li>
+    </ul>
+  </div>
+</footer>
+
+</body>
+</html>
