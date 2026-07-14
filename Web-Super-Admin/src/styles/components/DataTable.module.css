@@ -1,0 +1,29 @@
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.filters select {
+  padding: 7px 12px;
+  border: 1px solid var(--gray-300);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  font-size: 0.85rem;
+  color: var(--gray-600);
+  cursor: pointer;
+}
+
+.empty {
+  text-align: center;
+  color: var(--gray-400);
+  padding: 40px 20px !important;
+}
+
+.actionBtnSuccess {
+  background: var(--success-tint);
+  border-color: var(--success);
+  color: var(--success);
+}

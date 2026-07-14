@@ -1,0 +1,57 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap');
+
+:root {
+  --white: #FFFFFF;
+  --blue-900: #132A45;
+  --blue-700: #1F4E79;
+  --blue-500: #2D6CB5;
+  --blue-100: #E7F0FA;
+  --gray-50: #F7F9FB;
+  --gray-100: #EEF1F4;
+  --gray-200: #D7DEE6;
+  --gray-300: #D7DEE6;
+  --gray-400: #8B94A3;
+  --gray-500: #8B94A3;
+  --gray-600: #5C6675;
+  --gray-700: #5C6675;
+  --gray-900: #1B2430;
+  --accent: #12A594;
+  --accent-dark: #0E8377;
+  --accent-tint: #E4F6F3;
+  --danger: #D64545;
+  --danger-tint: #FCEBEB;
+  --warning: #E8A317;
+  --warning-tint: #FFF5DC;
+  --success: #28A745;
+  --success-tint: #E8F5E9;
+
+  --font-display: 'Poppins', 'Inter', sans-serif;
+  --font-body: 'Inter', sans-serif;
+
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 24px;
+  --radius-full: 999px;
+
+  --shadow-sm: 0 1px 2px rgba(19,42,69,0.06), 0 1px 1px rgba(19,42,69,0.05);
+  --shadow-md: 0 10px 30px rgba(19,42,69,0.08);
+  --shadow-lg: 0 20px 55px rgba(19,42,69,0.14);
+
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-2xl: 32px;
+  --space-3xl: 48px;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.85rem;
+  --text-base: 1rem;
+  --text-lg: 1.15rem;
+  --text-xl: 1.3rem;
+
+  --sidebar-width: 260px;
+  --sidebar-collapsed-width: 72px;
+  --topbar-height: 60px;
+}

@@ -1,0 +1,11 @@
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  color: var(--blue-900);
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.mono {
+  font-family: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', monospace;
+  font-size: 0.9em;
+}

@@ -1,0 +1,94 @@
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  text-align: left;
+  padding: 11px 20px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gray-400);
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-100);
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 12px 20px;
+  font-size: 0.88rem;
+  border-bottom: 1px solid var(--gray-100);
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover td {
+  background: var(--gray-50);
+}
+
+.tableEmpty {
+  text-align: center;
+  color: var(--gray-400);
+  padding: 40px 20px !important;
+}
+
+.tableFilters {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.tablePagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 20px;
+  border-top: 1px solid var(--gray-100);
+}
+
+.paginationInfo {
+  font-size: 0.82rem;
+  color: var(--gray-600);
+}
+
+.paginationBtns {
+  display: flex;
+  gap: 4px;
+}
+
+.pageBtn {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--gray-300);
+  background: var(--white);
+  font-size: 0.82rem;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pageBtn:hover {
+  border-color: var(--blue-500);
+  color: var(--blue-700);
+}
+
+.pageBtnActive {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--white);
+}
