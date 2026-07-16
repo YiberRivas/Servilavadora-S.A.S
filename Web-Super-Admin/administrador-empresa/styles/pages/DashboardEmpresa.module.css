@@ -1,0 +1,1121 @@
+/* =====================
+   DASHBOARD EMPRESA
+   ===================== */
+
+.page {
+  padding: 0;
+  animation: fadeInPage 0.4s ease;
+}
+
+@keyframes fadeInPage {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* =====================
+   BANNER / HERO
+   ===================== */
+.banner {
+  background: var(--accent-tint);
+  border: 1px solid rgba(18, 165, 148, 0.15);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl) var(--space-2xl);
+  margin-bottom: var(--space-xl);
+}
+
+.bannerContent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xl);
+  margin-bottom: var(--space-xl);
+}
+
+.bannerLeft {
+  flex: 1;
+  min-width: 0;
+}
+
+.bannerText {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bannerTitle {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--blue-900);
+  margin: 0;
+  line-height: 1.3;
+  max-width: 480px;
+}
+
+.bannerDesc {
+  font-size: var(--text-sm);
+  color: var(--gray-600);
+  margin: 0;
+  max-width: 420px;
+  line-height: 1.5;
+}
+
+.bannerIllustration {
+  flex-shrink: 0;
+  width: 170px;
+}
+
+.bannerIllustration svg {
+  width: 100%;
+  height: auto;
+}
+
+/* =====================
+   MINI STAT CARDS
+   ===================== */
+.bannerStats {
+  display: flex;
+  gap: var(--space-md);
+}
+
+.miniStat {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  min-width: 220px;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.miniStat:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.miniStatIcon {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.miniStatInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.miniStatValue {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--blue-900);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.miniStatLabel {
+  font-size: 0.72rem;
+  color: var(--gray-500);
+  font-weight: 500;
+}
+
+/* =====================
+   CHART CARD
+   ===================== */
+.chartCard {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  margin-bottom: var(--space-xl);
+  overflow: hidden;
+}
+
+.chartHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.chartHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.chartTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--blue-900);
+}
+
+.chartFilter {
+  padding: 5px 10px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  font-size: 0.78rem;
+  color: var(--gray-600);
+  cursor: pointer;
+}
+
+.chartFilter:focus {
+  outline: none;
+  border-color: var(--blue-500);
+}
+
+.chartBody {
+  padding: var(--space-lg);
+}
+
+.chartLegend {
+  display: flex;
+  align-items: center;
+  gap: var(--space-lg);
+  padding: 0 var(--space-lg) var(--space-md);
+}
+
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--gray-500);
+  font-weight: 500;
+}
+
+.legendDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+}
+
+/* =====================
+   MAIN GRID (tabla + panel derecho)
+   ===================== */
+.mainGrid {
+  display: grid;
+  grid-template-columns: 1fr 320px;
+  gap: var(--space-xl);
+  margin-bottom: var(--space-xl);
+}
+
+.mainCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.sideCol {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+/* =====================
+   TABLE CARD
+   ===================== */
+.tableCard {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.tableHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.tableHeaderLeft {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.tableTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--blue-900);
+}
+
+/* Sort controls */
+.sortGroup {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sortDropdownWrap {
+  position: relative;
+}
+
+.sortBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--gray-500);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.sortBtn:hover {
+  border-color: var(--gray-300);
+  color: var(--gray-700);
+}
+
+.sortBtnActive {
+  border-color: var(--accent);
+  color: var(--accent-dark);
+  background: var(--accent-tint);
+}
+
+.sortMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 140px;
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-md);
+  z-index: 30;
+  overflow: hidden;
+}
+
+.sortMenuItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  font-size: 0.78rem;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: background 0.12s ease;
+  text-align: left;
+}
+
+.sortMenuItem:hover {
+  background: var(--gray-50);
+  color: var(--blue-900);
+}
+
+.tableCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 8px;
+  background: var(--gray-100);
+  color: var(--gray-600);
+  border-radius: var(--radius-full);
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th {
+  text-align: left;
+  padding: 10px 16px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--gray-400);
+  background: var(--gray-50);
+  border-bottom: 1px solid var(--gray-100);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.15s ease;
+}
+
+.table th:hover {
+  color: var(--blue-700);
+}
+
+.table th.sorted {
+  color: var(--blue-700);
+}
+
+.table td {
+  padding: 10px 16px;
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--gray-100);
+  vertical-align: middle;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table tbody tr:hover td {
+  background: var(--gray-50);
+}
+
+.tableEmpty {
+  text-align: center;
+  color: var(--gray-400);
+  padding: 40px 20px !important;
+}
+
+/* User cell */
+.userCell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--white);
+  flex-shrink: 0;
+}
+
+.userName {
+  font-weight: 600;
+  color: var(--blue-900);
+}
+
+.userEmail {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--gray-400);
+}
+
+/* Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.68rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.badgeActivo {
+  background: var(--accent-tint);
+  color: var(--accent-dark);
+}
+
+.badgeInactivo {
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+
+.badgeDot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* Action buttons */
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.actionBtn {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid var(--gray-100);
+  color: var(--gray-500);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.actionBtn:hover {
+  background: var(--gray-50);
+  border-color: var(--gray-300);
+  color: var(--blue-700);
+}
+
+.actionBtnMore {
+  border: none;
+  background: transparent;
+  color: var(--gray-400);
+  font-size: 1.1rem;
+  letter-spacing: 2px;
+}
+
+.actionBtnMore:hover {
+  color: var(--gray-700);
+  background: var(--gray-100);
+}
+
+/* Table pagination */
+.tablePagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-top: 1px solid var(--gray-100);
+}
+
+.paginationInfo {
+  font-size: 0.78rem;
+  color: var(--gray-500);
+}
+
+.paginationBtns {
+  display: flex;
+  gap: 4px;
+}
+
+.pageBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--gray-200);
+  background: var(--white);
+  font-size: 0.78rem;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pageBtn:hover {
+  border-color: var(--blue-500);
+  color: var(--blue-700);
+}
+
+.pageBtnActive {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--white);
+}
+
+/* =====================
+   SIDE CARDS
+   ===================== */
+.sideCard {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.sideCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.sideCardTitle {
+  font-family: var(--font-display);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--blue-900);
+}
+
+.sideCardBody {
+  padding: var(--space-lg);
+}
+
+/* Equipo card */
+.teamAvatars {
+  display: flex;
+  align-items: center;
+  margin-bottom: var(--space-md);
+}
+
+.teamAvatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--white);
+  border: 2px solid var(--white);
+  margin-left: -8px;
+  flex-shrink: 0;
+  cursor: default;
+  position: relative;
+}
+
+.teamAvatar:first-child {
+  margin-left: 0;
+}
+
+.teamAvatarMore {
+  background: var(--gray-200);
+  color: var(--gray-600);
+  font-size: 0.6rem;
+}
+
+.inviteForm {
+  display: flex;
+  gap: 6px;
+}
+
+.inviteInput {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  font-size: 0.78rem;
+  color: var(--gray-700);
+  min-width: 0;
+}
+
+.inviteInput::placeholder {
+  color: var(--gray-400);
+}
+
+.inviteInput:focus {
+  outline: none;
+  border-color: var(--blue-500);
+  box-shadow: 0 0 0 3px var(--blue-100);
+}
+
+.inviteBtn {
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: var(--white);
+  border: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s ease;
+}
+
+.inviteBtn:hover {
+  background: var(--accent-dark);
+}
+
+/* Productos top card */
+.productItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-sm) 0;
+  border-bottom: 1px solid var(--gray-100);
+}
+
+.productItem:last-child {
+  border-bottom: none;
+}
+
+.productProgress {
+  position: relative;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+}
+
+.productProgress svg {
+  transform: rotate(-90deg);
+}
+
+.productProgressBg {
+  fill: none;
+  stroke: var(--gray-100);
+  stroke-width: 4;
+}
+
+.productProgressFill {
+  fill: none;
+  stroke-width: 4;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s ease;
+}
+
+.productProgressText {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--blue-900);
+}
+
+.productInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.productName {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--blue-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.productMeta {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--gray-400);
+}
+
+/* =====================
+   RESPONSIVE
+   ===================== */
+@media (max-width: 1200px) {
+  .mainGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .sideCol {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-xl);
+  }
+}
+
+@media (max-width: 1024px) {
+  .bannerIllustration {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .banner {
+    padding: var(--space-lg);
+  }
+
+  .bannerTitle {
+    font-size: 1.05rem;
+  }
+
+  .bannerStats {
+    flex-direction: column;
+  }
+
+  .miniStat {
+    min-width: auto;
+  }
+
+  .sideCol {
+    grid-template-columns: 1fr;
+  }
+
+  .chartHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-sm);
+  }
+}
+
+/* =====================
+   TOOLTIP (recharts)
+   ===================== */
+.tooltip {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  box-shadow: var(--shadow-md);
+}
+
+.tooltipLabel {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--blue-900);
+  margin: 0 0 4px 0;
+}
+
+.tooltipItem {
+  font-size: 0.72rem;
+  margin: 0;
+}
+
+.tooltipItem strong {
+  font-weight: 700;
+}
+
+/* =====================
+   PAGE HEADER (shared)
+   ===================== */
+.pageHeader {
+  margin-bottom: var(--space-xl);
+}
+
+.pageTitle {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--blue-900);
+  margin: 0 0 4px 0;
+}
+
+.pageDesc {
+  font-size: var(--text-sm);
+  color: var(--gray-500);
+  margin: 0;
+}
+
+/* =====================
+   FILTERS BAR (shared)
+   ===================== */
+.filtersBar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+  flex-wrap: wrap;
+}
+
+.searchWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 220px;
+  max-width: 360px;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  color: var(--gray-400);
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 9px 12px 9px 36px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  font-size: 0.82rem;
+  color: var(--gray-700);
+  transition: all 0.2s ease;
+}
+
+.searchInput::placeholder {
+  color: var(--gray-400);
+}
+
+.searchInput:focus {
+  outline: none;
+  border-color: var(--blue-500);
+  box-shadow: 0 0 0 3px var(--blue-100);
+}
+
+.filterGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.filterIcon {
+  color: var(--gray-400);
+  flex-shrink: 0;
+}
+
+.filterSelect {
+  padding: 9px 10px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-sm);
+  background: var(--white);
+  font-size: 0.82rem;
+  color: var(--gray-600);
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.filterSelect:focus {
+  outline: none;
+  border-color: var(--blue-500);
+}
+
+/* =====================
+   CELL HELPERS (shared)
+   ===================== */
+.cellMuted {
+  font-size: 0.82rem;
+  color: var(--gray-500);
+}
+
+.cellProduct {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--blue-700);
+}
+
+.actionBtnDanger:hover {
+  background: var(--danger-tint) !important;
+  border-color: var(--danger) !important;
+  color: var(--danger) !important;
+}
+
+/* =====================
+   BADGE VARIANTS (shared)
+   ===================== */
+.badgePendiente {
+  background: var(--warning-tint);
+  color: var(--warning);
+}
+
+.badgeVencido {
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+
+.badgePagado {
+  background: var(--accent-tint);
+  color: var(--accent-dark);
+}
+
+.badgeFinalizado {
+  background: var(--gray-100);
+  color: var(--gray-600);
+}
+
+.badgeAtrasado {
+  background: var(--danger-tint);
+  color: var(--danger);
+}
+
+.badgeEnUso {
+  background: var(--blue-100);
+  color: var(--blue-700);
+}
+
+.badgeDisponible {
+  background: var(--accent-tint);
+  color: var(--accent-dark);
+}
+
+.badgeMantenimiento {
+  background: var(--warning-tint);
+  color: var(--warning);
+}
+
+/* =====================
+   LAVADORAS GRID
+   ===================== */
+.lavadorasGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-lg);
+}
+
+.lavadoraCard {
+  background: var(--white);
+  border: 1px solid var(--gray-100);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-lg);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.lavadoraCard:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.lavadoraCardTop {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--space-md);
+}
+
+.lavadoraIcon {
+  width: 48px;
+  height: 48px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.lavadoraName {
+  font-family: var(--font-display);
+  font-size: 0.92rem;
+  font-weight: 700;
+  color: var(--blue-900);
+  margin: 0 0 2px 0;
+}
+
+.lavadoraModelo {
+  font-size: 0.75rem;
+  color: var(--gray-400);
+  margin: 0;
+}
+
+.lavadoraDetails {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: var(--space-md);
+}
+
+.lavadoraDetail {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.78rem;
+}
+
+.lavadoraDetailLabel {
+  color: var(--gray-400);
+}
+
+.lavadoraDetailValue {
+  font-weight: 600;
+  color: var(--blue-900);
+}
+
+.lavadoraPrice {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--accent-dark);
+}
+
+.lavadoraCardFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--gray-100);
+}
+
+.lavadoraAlquileres {
+  font-size: 0.72rem;
+  color: var(--gray-500);
+}
+
+.lavadoraAlquileres strong {
+  color: var(--blue-900);
+  font-weight: 700;
+}
+
+/* Page header with button */
+.pageHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-xl);
+}
+
+.btnPrimary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  color: var(--white);
+  border: none;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+  box-shadow: var(--shadow-sm);
+}
+
+.btnPrimary:hover {
+  background: var(--accent-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Stats row (for alquileres/pagos) */
+.statsRow {
+  display: flex;
+  gap: var(--space-md);
+  margin-bottom: var(--space-xl);
+}
+
+/* =====================
+   RESPONSIVE (shared)
+   ===================== */
+@media (max-width: 768px) {
+  .filtersBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .searchWrap {
+    max-width: none;
+  }
+
+  .filterGroup {
+    flex-wrap: wrap;
+  }
+
+  .lavadorasGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .pageHeaderRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-md);
+  }
+
+  .statsRow {
+    flex-direction: column;
+  }
+}

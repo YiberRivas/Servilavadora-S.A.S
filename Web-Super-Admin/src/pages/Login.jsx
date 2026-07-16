@@ -2,6 +2,12 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import styles from '../styles/pages/Login.module.css'
 
+// ─── Credenciales mock ────────────────────────────────────────────
+// TODO: reemplazar por validacion real contra backend.
+// El backend debe devolver un "rol" o "tipo_usuario" para decidir la redireccion.
+const MOCK_SUPER_ADMIN = { email: 'admin@servilavadora.co', password: '123456' }
+const MOCK_EMPRESA_ADMIN = { email: 'adminempresa@cleanhouse.co', password: '123456' }
+
 export default function Login() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
@@ -26,7 +32,24 @@ export default function Login() {
 
     setLoading(true)
     setTimeout(() => {
-      navigate('/admin')
+      // ── Super Admin ──────────────────────────────
+      if (email === MOCK_SUPER_ADMIN.email && password === MOCK_SUPER_ADMIN.password) {
+        navigate('/admin')
+        return
+      }
+
+      // ── Admin Empresa ────────────────────────────
+      // TODO: cuando exista backend, el login devolvera el rol y se usa ahi:
+      //   if (rol === 'super_admin')      navigate('/admin')
+      //   else if (rol === 'admin_empresa') navigate('/administrador-empresa')
+      if (email === MOCK_EMPRESA_ADMIN.email && password === MOCK_EMPRESA_ADMIN.password) {
+        navigate('/administrador-empresa')
+        return
+      }
+
+      // ── Credenciales incorrectas ─────────────────
+      setLoading(false)
+      setErrors({ credentials: 'Correo o contrasena incorrectos.' })
     }, 800)
   }
 
@@ -107,7 +130,9 @@ export default function Login() {
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setErrors(prev => ({ ...prev, password: undefined })) }}
                 />
-                <button
+            {errors.credentials && <span className="error" style={{ textAlign: 'center' }}>{errors.credentials}</span>}
+
+            <button
                   type="button"
                   className="togglePass"
                   onClick={() => setShowPassword(!showPassword)}
