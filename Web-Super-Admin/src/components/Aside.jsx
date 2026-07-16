@@ -1,10 +1,9 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Building2, ShieldCheck, Users, CreditCard,
-  BarChart3, Settings, LogOut, ChevronLeft, ChevronDown,
-  TrendingUp, ClipboardList, Home, FileText, Receipt, UserCog,
-  Shield, AlertTriangle
+  BarChart3, Settings, LogOut, ChevronLeft,
+  TrendingUp, Home, Shield
 } from 'lucide-react'
 import styles from '../styles/components/Aside.module.css'
 
@@ -42,28 +41,12 @@ export default function Aside({ isOpen, onClose, onCollapsedChange }) {
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem('sidebar-collapsed') === 'true'
   })
-  const [userDropdownOpen, setUserDropdownOpen] = useState(false)
-  const dropdownRef = useRef(null)
   const navigate = useNavigate()
 
   useEffect(() => {
     localStorage.setItem('sidebar-collapsed', collapsed)
     onCollapsedChange?.(collapsed)
   }, [collapsed, onCollapsedChange])
-
-  useEffect(() => {
-    const handleClickOutside = (e) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
-        setUserDropdownOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside)
-    return () => document.removeEventListener('mousedown', handleClickOutside)
-  }, [])
-
-  useEffect(() => {
-    setUserDropdownOpen(false)
-  }, [isOpen])
 
   const handleToggleCollapse = () => {
     setCollapsed(prev => !prev)
@@ -73,10 +56,6 @@ export default function Aside({ isOpen, onClose, onCollapsedChange }) {
     if (window.innerWidth <= 768) {
       onClose()
     }
-  }
-
-  const handleLogout = () => {
-    navigate('/')
   }
 
   const sidebarClass = [
@@ -96,11 +75,11 @@ export default function Aside({ isOpen, onClose, onCollapsedChange }) {
 
       <aside className={sidebarClass}>
         <div className={styles.sidebarInner}>
-          {/* Header */}
+          {/* Header - Solo Logo */}
           <div className={styles.sidebarHeader}>
             <div className={styles.logoGroup}>
               <div className={styles.logoIcon}>
-                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                   <circle cx="12" cy="12" r="10"/>
                   <circle cx="12" cy="12" r="6" strokeDasharray="3 4"/>
                   <circle cx="12" cy="12" r="2" fill="currentColor"/>
@@ -108,7 +87,7 @@ export default function Aside({ isOpen, onClose, onCollapsedChange }) {
               </div>
               <div className={styles.logoSection}>
                 <span className={styles.logoName}>Servilavadora</span>
-                <span className={styles.logoSub}>Super Administracion</span>
+                <span className={styles.logoSub}>S.A.S.</span>
               </div>
             </div>
             <button className={styles.collapseBtn} onClick={handleToggleCollapse} aria-label="Colapsar menu">
@@ -116,44 +95,10 @@ export default function Aside({ isOpen, onClose, onCollapsedChange }) {
             </button>
           </div>
 
-          {/* User Card */}
-          <div className={styles.userCardWrapper} ref={dropdownRef}>
-            <div className={styles.userCard} onClick={() => setUserDropdownOpen(!userDropdownOpen)}>
-              <div className={styles.avatar}>SA</div>
-              <div className={styles.userInfo}>
-                <div className={styles.userName}>Super Admin</div>
-                <div className={styles.userRole}>Administrador General</div>
-                <div className={styles.userStatus}>
-                  <span className={styles.statusDot}></span>
-                  <span className={styles.statusText}>En linea</span>
-                </div>
-              </div>
-              <ChevronDown className={styles.userDropdownArrow} width={14} height={14} />
-
-              {!collapsed && <span className={styles.userCardTooltip}>Mi perfil</span>}
-            </div>
-
-            <div className={`${styles.userDropdown} ${userDropdownOpen ? styles.userDropdownOpen : ''}`}>
-              <button className={styles.dropdownItem} onClick={() => { setUserDropdownOpen(false); handleNavClick() }}>
-                <Users width={15} height={15} />
-                Mi perfil
-              </button>
-              <button className={styles.dropdownItem} onClick={() => { setUserDropdownOpen(false); handleNavClick() }}>
-                <Settings width={15} height={15} />
-                Configuracion
-              </button>
-              <div className={styles.dropdownDivider}></div>
-              <button className={`${styles.dropdownItem} ${styles.dropdownItemDanger}`} onClick={handleLogout}>
-                <LogOut width={15} height={15} />
-                Cerrar sesion
-              </button>
-            </div>
-          </div>
-
           {/* Navigation */}
           <nav className={styles.navSection}>
             {navSections.map((section, sIdx) => (
-              <div key={sIdx}>
+              <div key={sIdx} className={styles.navGroup}>
                 <div className={styles.navLabel}>
                   <span className={styles.navLabelText}>{section.label}</span>
                 </div>
@@ -181,7 +126,6 @@ export default function Aside({ isOpen, onClose, onCollapsedChange }) {
             ))}
           </nav>
 
-          {/* Logout */}
           <div className={styles.logoutSection}>
             <NavLink to="/" className={styles.logoutItem} onClick={handleNavClick}>
               <LogOut width={18} height={18} />

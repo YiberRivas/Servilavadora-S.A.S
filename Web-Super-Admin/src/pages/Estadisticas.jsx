@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import PageHeader from '../components/PageHeader'
 import StatCard from '../components/StatCard'
 import { stats, empresas, planes, pagos, dashboardData } from '../data/mockData'
 import styles from '../styles/pages/Estadisticas.module.css'
@@ -51,8 +50,6 @@ export default function Estadisticas() {
 
   return (
     <div>
-      <PageHeader title="Estadisticas Globales" subtitle="Metricas SaaS de la plataforma" />
-
       <div className={styles.stats}>
         {statCards.map((stat, i) => (
           <StatCard key={i} {...stat} />

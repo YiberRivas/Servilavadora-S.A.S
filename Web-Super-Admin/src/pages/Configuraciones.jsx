@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import PageHeader from '../components/PageHeader'
 import { configuracion } from '../data/mockData'
 import styles from '../styles/pages/Configuraciones.module.css'
 
@@ -27,7 +26,6 @@ export default function Configuraciones() {
 
   return (
     <div>
-      <PageHeader title="Configuraciones" />
       <div className={styles.grid}>
         <div className={styles.card}>
           <h3>General</h3>
