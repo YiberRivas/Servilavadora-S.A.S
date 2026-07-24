@@ -126,7 +126,7 @@ export default function Aside({ isOpen, onClose, onCollapsedChange }) {
             ))}
           </nav>
 
-          <div className={styles.logoutSection}>
+         <div className={styles.logoutSection}>
             <NavLink to="/" className={styles.logoutItem} onClick={handleNavClick}>
               <LogOut width={18} height={18} />
               <span className={styles.navItemText}>Cerrar sesion</span>
