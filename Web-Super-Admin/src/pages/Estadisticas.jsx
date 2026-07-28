@@ -1,6 +1,6 @@
-import { useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import StatCard from '../components/StatCard'
-import { stats, empresas, planes, pagos, dashboardData } from '../data/mockData'
+import { api } from '../services/api'
 import styles from '../styles/pages/Estadisticas.module.css'
 
 const formatCurrency = (val) => {
@@ -10,43 +10,58 @@ const formatCurrency = (val) => {
 }
 
 export default function Estadisticas() {
+  const [loading, setLoading] = useState(true)
+  const [dashboard, setDashboard] = useState(null)
+  const [pagos, setPagos] = useState([])
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [dashRes, pagosRes] = await Promise.all([
+          api.get('/dashboard'),
+          api.get('/empresas/pagos/all?per_page=100'),
+        ])
+        if (dashRes.success) setDashboard(dashRes.data)
+        if (pagosRes.success) setPagos(pagosRes.data || [])
+      } catch {
+        // ignore
+      }
+      setLoading(false)
+    }
+    fetchData()
+  }, [])
+
+  const resumen = dashboard?.resumen || {}
+
   const statCards = useMemo(() => [
-    { icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', label: 'Ingresos mensuales', value: formatCurrency(stats.ingresos.mesActual), variant: 'success' },
-    { icon: 'M3 21h18M9 8h1M9 12h1M9 16h1M14 8h1M14 12h1M14 16h1M5 3h14a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z', label: 'Empresas activas', value: stats.empresas.activas, variant: 'blue' },
-    { icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', label: 'Suscripciones activas', value: stats.suscripciones.activas, variant: 'accent' },
-    { icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6', label: 'Planes disponibles', value: planes.length, variant: 'warning' },
-  ], [])
+    { icon: 'M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6', label: 'Ingresos totales', value: formatCurrency(resumen.ingresos_totales || 0), variant: 'success' },
+    { icon: 'M3 21h18M9 8h1M9 12h1M9 16h1M14 8h1M14 12h1M14 16h1M5 3h14a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z', label: 'Empresas activas', value: resumen.empresas_activas || 0, variant: 'blue' },
+    { icon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75', label: 'Suscripciones', value: resumen.total_suscripciones || 0, variant: 'accent' },
+    { icon: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8zM14 2v6h6', label: 'Planes', value: dashboard?.distribucion_planes?.length || 0, variant: 'warning' },
+  ], [resumen, dashboard])
 
   const resumenPagos = useMemo(() => {
-    const pagados = pagos.filter(p => p.estado === 'pagado').length
-    const pendientes = pagos.filter(p => p.estado === 'pendiente').length
-    const vencidos = pagos.filter(p => p.estado === 'vencido').length
-    const totalRecaudado = pagos.filter(p => p.estado === 'pagado').reduce((s, p) => s + p.monto, 0)
+    const pagados = pagos.filter(p => p.estado_pago_nombre === 'PAGADO').length
+    const pendientes = pagos.filter(p => p.estado_pago_nombre === 'PENDIENTE').length
+    const vencidos = pagos.filter(p => p.estado_pago_nombre === 'VENCIDO').length
+    const totalRecaudado = pagos.filter(p => p.estado_pago_nombre === 'PAGADO').reduce((s, p) => s + (p.valor || 0), 0)
     return { pagados, pendientes, vencidos, totalRecaudado }
-  }, [])
+  }, [pagos])
 
   const distribucionPlan = useMemo(() => {
-    const count = {}
-    empresas.forEach(e => { count[e.plan] = (count[e.plan] || 0) + 1 })
-    const total = empresas.length
-    return Object.entries(count).map(([plan, cantidad]) => ({
-      plan, cantidad, porcentaje: Math.round((cantidad / total) * 100)
+    if (!dashboard?.distribucion_planes) return []
+    const total = dashboard.distribucion_planes.reduce((s, p) => s + p.cantidad, 0)
+    return dashboard.distribucion_planes.map(p => ({
+      plan: p.nombre, cantidad: p.cantidad, precio: p.precio,
+      porcentaje: total > 0 ? Math.round((p.cantidad / total) * 100) : 0
     }))
-  }, [])
-
-  const estadosPago = useMemo(() => {
-    const count = {}
-    empresas.forEach(e => {
-      const ep = e.estadoPago || 'pagado'
-      count[ep] = (count[ep] || 0) + 1
-    })
-    const colors = { pagado: 'var(--accent)', proximo_vencer: 'var(--warning)', en_mora: 'var(--danger)', pendiente: 'var(--gray-400)' }
-    return Object.entries(count).map(([estado, cantidad]) => ({
-      estado, cantidad, color: colors[estado] || 'var(--gray-400)'
-    }))
-  }, [])
+  }, [dashboard])
 
   const planColors = ['var(--blue-700)', 'var(--accent)', 'var(--warning)', 'var(--gray-400)']
+
+  if (loading) {
+    return <div className={styles.page}><p style={{ textAlign: 'center', padding: '40px', color: 'var(--gray-400)' }}>Cargando estadisticas...</p></div>
+  }
 
   return (
     <div>
@@ -57,30 +72,6 @@ export default function Estadisticas() {
       </div>
 
       <div className={styles.charts}>
-        {/* Ingresos por mes */}
-        <div className={styles.chartPlaceholder}>
-          <h3>Ingresos por mes</h3>
-          <div className={styles.chart}>
-            <div className={styles.barChart}>
-              {dashboardData.ingresosPorMes.map((item, i) => (
-                <div key={i} className={styles.barGroup}>
-                  <div
-                    className={styles.bar}
-                    style={{
-                      height: `${(item.ingresos / 20000000) * 100}%`,
-                      background: item.ingresos > item.anterior ? 'var(--accent)' : 'var(--blue-700)'
-                    }}
-                  >
-                    <span className={styles.barValue}>{formatCurrency(item.ingresos)}</span>
-                  </div>
-                  <span className={styles.barLabel}>{item.mes}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Distribucion por plan */}
         <div className={styles.chartPlaceholder}>
           <h3>Empresas por plan</h3>
           <div className={styles.chart}>
@@ -88,10 +79,7 @@ export default function Estadisticas() {
               {distribucionPlan.map((item, i) => (
                 <div key={item.plan} className={styles.pieItem}>
                   <div className={styles.pieBar}>
-                    <div
-                      className={styles.pieFill}
-                      style={{ width: `${item.porcentaje}%`, background: planColors[i % planColors.length] }}
-                    />
+                    <div className={styles.pieFill} style={{ width: `${item.porcentaje}%`, background: planColors[i % planColors.length] }} />
                   </div>
                   <span className={styles.pieLabel}>{item.plan}</span>
                   <span className={styles.pieValue}>{item.cantidad} ({item.porcentaje}%)</span>
@@ -101,28 +89,6 @@ export default function Estadisticas() {
           </div>
         </div>
 
-        {/* Estado de pagos */}
-        <div className={styles.chartPlaceholder}>
-          <h3>Estado de pagos</h3>
-          <div className={styles.chart}>
-            <div className={styles.pieList}>
-              {estadosPago.map((item) => (
-                <div key={item.estado} className={styles.pieItem}>
-                  <div className={styles.pieBar}>
-                    <div
-                      className={styles.pieFill}
-                      style={{ width: `${(item.cantidad / empresas.length) * 100}%`, background: item.color }}
-                    />
-                  </div>
-                  <span className={styles.pieLabel}>{item.estado.replace('_', ' ')}</span>
-                  <span className={styles.pieValue}>{item.cantidad}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Resumen pagos */}
         <div className={styles.chartPlaceholder}>
           <h3>Resumen de cobros</h3>
           <div className={styles.kpiGrid}>
@@ -146,7 +112,6 @@ export default function Estadisticas() {
         </div>
       </div>
 
-      {/* Tabla de planes */}
       <div className={styles.tableSection}>
         <h3>Detalle de planes</h3>
         <div className={styles.tableWrapper}>
@@ -156,25 +121,21 @@ export default function Estadisticas() {
                 <th>Plan</th>
                 <th>Valor mensual</th>
                 <th>Empresas</th>
-                <th>Max usuarios</th>
-                <th>Soporte</th>
                 <th>Ingresos estimados</th>
               </tr>
             </thead>
             <tbody>
-              {planes.map((plan) => (
-                <tr key={plan.id}>
+              {distribucionPlan.map((plan, i) => (
+                <tr key={plan.plan}>
                   <td>
-                    <div className={styles.planBadge} style={{ background: plan.color + '15', color: plan.color }}>
-                      <span className={styles.planDot} style={{ background: plan.color }}></span>
-                      {plan.nombre}
+                    <div className={styles.planBadge} style={{ background: planColors[i % planColors.length] + '15', color: planColors[i % planColors.length] }}>
+                      <span className={styles.planDot} style={{ background: planColors[i % planColors.length] }}></span>
+                      {plan.plan}
                     </div>
                   </td>
-                  <td>{formatCurrency(plan.valorMensual)}</td>
-                  <td>{plan.empresas}</td>
-                  <td>{plan.maxUsuarios === -1 ? 'Ilimitado' : plan.maxUsuarios}</td>
-                  <td>{plan.soporte}</td>
-                  <td style={{ fontWeight: 600 }}>{formatCurrency(plan.valorMensual * plan.empresas)}</td>
+                  <td>{formatCurrency(plan.precio)}</td>
+                  <td>{plan.cantidad}</td>
+                  <td style={{ fontWeight: 600 }}>{formatCurrency(plan.precio * plan.cantidad)}</td>
                 </tr>
               ))}
             </tbody>

@@ -1,18 +1,25 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, Platform, TextInput } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Animated, Platform, TextInput, RefreshControl } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import { services, companies } from '../../src/constants/mockData';
-import { formatCurrency, getStatusColor, getStatusLabel } from '../../src/utils/formatters';
+import { companiesService } from '../../src/services';
+import { formatCurrency } from '../../src/utils/formatters';
 import { colors, radii, shadows } from '../../src/theme';
 import AppButton from '../../src/components/ui/AppButton';
+import SkeletonCard from '../../src/components/ui/SkeletonCard';
+
+const LOGO_COLORS = ['#12A594', '#1F4E79', '#8b5cf6', '#f59e0b', '#ef4444', '#0ea5e9', '#10b981'];
+
+function getLogoBg(uuid) {
+  if (!uuid) return LOGO_COLORS[0];
+  return LOGO_COLORS[uuid.charCodeAt(0) % LOGO_COLORS.length];
+}
 
 const sortOptions = [
   { key: 'popular', label: 'Populares' },
-  { key: 'rating', label: 'Calificación' },
   { key: 'price_asc', label: 'Menor precio' },
   { key: 'price_desc', label: 'Mayor precio' },
-  { key: 'time', label: 'Más rápido' },
+  { key: 'availability', label: 'Disponibilidad' },
 ];
 
 export default function ServicesScreen() {
@@ -21,63 +28,102 @@ export default function ServicesScreen() {
   const [activeCategory, setActiveCategory] = useState('all');
   const [sortBy, setSortBy] = useState('popular');
   const [showSearch, setShowSearch] = useState(false);
+  const [companiesData, setCompaniesData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const categories = useMemo(() => {
-    const tagSet = new Set(services.flatMap((s) => s.tags || []));
-    return ['all', ...Array.from(tagSet)];
+  const loadCompanies = useCallback(async () => {
+    try {
+      setError(null);
+      const response = await companiesService.list();
+      if (response.success && response.data) {
+        setCompaniesData(response.data);
+      } else {
+        setCompaniesData([]);
+      }
+    } catch (err) {
+      setError('No se pudieron cargar los servicios.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, []);
 
-  const enrichedServices = useMemo(
-    () =>
-      services.map((service) => {
-        const company = companies.find((c) => c.id === service.companyId);
-        return {
-          ...service,
-          companyName: company?.name || 'Empresa',
-          companyRating: company?.rating || 0,
-        };
-      }),
-    []
-  );
+  useEffect(() => {
+    loadCompanies();
+  }, [loadCompanies]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadCompanies();
+  }, [loadCompanies]);
+
+  const allServices = useMemo(() => {
+    const services = [];
+    companiesData.forEach((company) => {
+      (company.capacities || []).forEach((cap, i) => {
+        services.push({
+          id: `${company.uuid}-${i}`,
+          companyUuid: company.uuid,
+          companyName: company.nombre_comercial || 'Empresa',
+          name: cap.type || `Lavadora ${cap.kg}kg`,
+          description: `Lavadora de ${cap.kg}kg disponible en ${company.nombre_comercial}`,
+          kg: cap.kg,
+          price: cap.price || 0,
+          available: cap.available || 0,
+          neighborhood: company.neighborhood || '',
+          city: company.city || '',
+          verified: company.verified || false,
+          permite_reservas: company.permite_reservas || false,
+          tarifa_min: company.tarifa_min || 0,
+          tarifa_max: company.tarifa_max || 0,
+        });
+      });
+    });
+    return services;
+  }, [companiesData]);
+
+  const categories = useMemo(() => {
+    const kgSet = new Set(allServices.map((s) => `${s.kg}kg`));
+    return ['all', ...Array.from(kgSet).sort((a, b) => Number(a) - Number(b))];
+  }, [allServices]);
 
   const filtered = useMemo(() => {
-    let result = enrichedServices;
+    let result = allServices;
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
         (s) =>
-          s.name.toLowerCase().includes(q) ||
           s.companyName.toLowerCase().includes(q) ||
+          s.name.toLowerCase().includes(q) ||
           s.description.toLowerCase().includes(q) ||
-          s.location.toLowerCase().includes(q)
+          `${s.kg}`.includes(q)
       );
     }
 
     if (activeCategory !== 'all') {
-      result = result.filter((s) => (s.tags || []).includes(activeCategory));
+      result = result.filter((s) => `${s.kg}kg` === activeCategory);
     }
 
     switch (sortBy) {
-      case 'rating':
-        result = [...result].sort((a, b) => b.companyRating - a.companyRating);
-        break;
       case 'price_asc':
         result = [...result].sort((a, b) => a.price - b.price);
         break;
       case 'price_desc':
         result = [...result].sort((a, b) => b.price - a.price);
         break;
-      case 'time':
-        result = [...result].sort((a, b) => (a.timeEstimate || 0) - (b.timeEstimate || 0));
+      case 'availability':
+        result = [...result].sort((a, b) => b.available - a.available);
         break;
     }
     return result;
-  }, [enrichedServices, searchQuery, activeCategory, sortBy]);
+  }, [allServices, searchQuery, activeCategory, sortBy]);
 
   const handleReserve = useCallback(
     (service) => {
-      router.push({ pathname: '/(modals)/request-service', params: { id: service.id } });
+      router.push({ pathname: '/(modals)/request-service', params: { companyId: service.companyUuid } });
     },
     [router]
   );
@@ -88,16 +134,19 @@ export default function ServicesScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.accent]} tintColor={colors.accent} />
+        }
       >
-        {/* ===== HEADER ===== */}
+        {/* HEADER */}
         <View style={[styles.header, { backgroundColor: colors.white }]}>
           <Text style={styles.headerTitle}>Servicios</Text>
           <Text style={styles.headerSubtitle}>
-            {filtered.length} servicio{filtered.length !== 1 ? 's' : ''} disponible{filtered.length !== 1 ? 's' : ''}
+            {loading ? 'Cargando...' : `${filtered.length} servicio${filtered.length !== 1 ? 's' : ''} disponible${filtered.length !== 1 ? 's' : ''}`}
           </Text>
         </View>
 
-        {/* ===== SEARCH ===== */}
+        {/* SEARCH */}
         <TouchableOpacity
           style={[styles.searchPill, { backgroundColor: colors.white }]}
           activeOpacity={0.8}
@@ -109,7 +158,7 @@ export default function ServicesScreen() {
               autoFocus
               value={searchQuery}
               onChangeText={setSearchQuery}
-              placeholder="Buscar servicios, empresas..."
+              placeholder="Buscar por empresa, capacidad..."
               placeholderTextColor={colors.gray400}
               style={[styles.searchInput, { color: colors.gray900 }]}
               onBlur={() => {
@@ -117,11 +166,11 @@ export default function ServicesScreen() {
               }}
             />
           ) : (
-            <Text style={styles.searchPlaceholder}>Buscar servicios, empresas...</Text>
+            <Text style={styles.searchPlaceholder}>Buscar por empresa, capacidad...</Text>
           )}
         </TouchableOpacity>
 
-        {/* ===== CATEGORY CHIPS ===== */}
+        {/* CATEGORY CHIPS */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -156,7 +205,7 @@ export default function ServicesScreen() {
           })}
         </ScrollView>
 
-        {/* ===== SORT ROW ===== */}
+        {/* SORT ROW */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -193,37 +242,50 @@ export default function ServicesScreen() {
           })}
         </ScrollView>
 
-        {/* ===== CARDS ===== */}
+        {/* CARDS */}
         <View style={styles.cardsList}>
-          {filtered.map((service, index) => (
-            <ServiceCardView
-              key={service.id}
-              service={service}
-              index={index}
-              onReserve={handleReserve}
-            />
-          ))}
-          {filtered.length === 0 && (
+          {loading ? (
+            <>
+              <SkeletonCard />
+              <SkeletonCard />
+              <SkeletonCard />
+            </>
+          ) : error ? (
+            <View style={styles.emptyState}>
+              <Icon source="cloud-off-outline" size={48} color={colors.gray300} />
+              <Text style={styles.emptyTitle}>Error de conexion</Text>
+              <Text style={styles.emptyDesc}>{error}</Text>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={loadCompanies}
+                style={[styles.retryBtn, { backgroundColor: colors.accent }]}
+              >
+                <Icon source="refresh" size={16} color={colors.white} />
+                <Text style={styles.retryBtnText}>Reintentar</Text>
+              </TouchableOpacity>
+            </View>
+          ) : filtered.length === 0 ? (
             <View style={styles.emptyState}>
               <Icon source="washing-machine" size={48} color={colors.gray300} />
               <Text style={styles.emptyTitle}>Sin resultados</Text>
               <Text style={styles.emptyDesc}>
-                Intenta con otros filtros o términos de búsqueda.
+                Intenta con otros filtros o terminos de busqueda.
               </Text>
             </View>
+          ) : (
+            filtered.map((service, index) => (
+              <ServiceCardView
+                key={service.id}
+                service={service}
+                index={index}
+                onReserve={handleReserve}
+              />
+            ))
           )}
         </View>
       </ScrollView>
     </View>
   );
-}
-
-function formatTime(minutes) {
-  if (!minutes) return '—';
-  if (minutes < 60) return `${minutes} min`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m > 0 ? `${h}h ${m}m` : `${h} horas`;
 }
 
 function ServiceCardView({ service, index, onReserve }) {
@@ -235,20 +297,19 @@ function ServiceCardView({ service, index, onReserve }) {
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 400,
-        delay: index * 100,
+        delay: Math.min(index, 5) * 80,
         useNativeDriver: true,
       }),
       Animated.timing(slideAnim, {
         toValue: 0,
         duration: 400,
-        delay: index * 100,
+        delay: Math.min(index, 5) * 80,
         useNativeDriver: true,
       }),
     ]).start();
   }, []);
 
-  const statusColor = getStatusColor(service.status?.toLowerCase());
-  const statusLabel = getStatusLabel(service.status?.toLowerCase());
+  const isAvailable = service.available > 0;
 
   return (
     <Animated.View
@@ -258,78 +319,56 @@ function ServiceCardView({ service, index, onReserve }) {
       }}
     >
       <View style={[styles.card, { backgroundColor: colors.white }]}>
-        {/* IMAGE */}
-        <View style={styles.cardImageWrap}>
-          <Image source={{ uri: service.image }} style={styles.cardImage} />
-          <View style={styles.cardImageOverlay} />
-          <View style={[styles.statusBadge, { backgroundColor: statusColor + 'E6' }]}>
-            <View
-              style={[
-                styles.statusDot,
-                { backgroundColor: colors.white },
-              ]}
-            />
-            <Text style={styles.statusText}>{statusLabel}</Text>
-          </View>
-        </View>
-
-        {/* BODY */}
         <View style={styles.cardBody}>
-          {/* NAME + RATING */}
           <View style={styles.cardTopRow}>
-            <Text style={styles.cardName} numberOfLines={1}>
-              {service.name}
-            </Text>
-            <View style={styles.cardRatingRow}>
-              <Icon source="star" size={14} color={colors.accent} />
-              <Text style={styles.cardRating}>{service.companyRating}</Text>
+            <View style={[styles.cardLogo, { backgroundColor: getLogoBg(service.companyUuid) }]}>
+              <Text style={styles.cardLogoText}>{service.companyName.charAt(0)}</Text>
             </View>
-          </View>
-
-          {/* COMPANY */}
-          <Text style={styles.cardCompany}>{service.companyName}</Text>
-
-          {/* INFO ROW */}
-          <View style={styles.cardInfoRow}>
-            <View style={styles.cardInfoItem}>
-              <Icon source="map-marker" size={14} color={colors.gray400} />
-              <Text style={styles.cardInfoText} numberOfLines={1}>
-                {service.location.split('-')[0].trim()}
+            <View style={styles.cardInfo}>
+              <Text style={styles.cardName} numberOfLines={1}>
+                {service.name}
               </Text>
+              <Text style={styles.cardCompany} numberOfLines={1}>{service.companyName}</Text>
             </View>
-            <View style={styles.cardInfoItem}>
-              <Icon source="clock-outline" size={14} color={colors.gray400} />
-              <Text style={styles.cardInfoText}>{formatTime(service.timeEstimate)}</Text>
-            </View>
-          </View>
-
-          {/* PRICE */}
-          <View style={styles.cardPriceRow}>
-            <Text style={styles.cardPrice}>
-              {formatCurrency(service.price)} <Text style={styles.cardPriceUnit}>/ hora</Text>
-            </Text>
-            {service.capacity && (
-              <Text style={styles.cardCapacity}>Cap. {service.capacity}</Text>
+            {service.verified && (
+              <Icon source="check-decagram" size={18} color={colors.accent} />
             )}
           </View>
 
-          {/* TAGS */}
-          {service.tags && service.tags.length > 0 && (
-            <View style={styles.cardTags}>
-              {service.tags.slice(0, 3).map((tag) => (
-                <View key={tag} style={[styles.tagChip, { backgroundColor: colors.accentTint }]}>
-                  <Text style={[styles.tagLabel, { color: colors.accentDark }]}>{tag}</Text>
-                </View>
-              ))}
+          <View style={styles.cardMetaRow}>
+            <View style={styles.cardMetaItem}>
+              <Icon source="map-marker" size={14} color={colors.gray400} />
+              <Text style={styles.cardMetaText} numberOfLines={1}>
+                {service.neighborhood || service.city || 'Sin ubicacion'}
+              </Text>
             </View>
-          )}
+            <View style={styles.cardMetaItem}>
+              <Icon source="weight-kilogram" size={14} color={colors.gray400} />
+              <Text style={styles.cardMetaText}>{service.kg} kg</Text>
+            </View>
+          </View>
 
-          {/* CTA */}
+          <View style={styles.cardBottomRow}>
+            <View>
+              <Text style={styles.cardPrice}>
+                {service.price > 0 ? formatCurrency(service.price) : 'Consultar'}
+              </Text>
+              <Text style={styles.cardPriceUnit}>/ hora</Text>
+            </View>
+            <View style={[styles.availabilityBadge, { backgroundColor: isAvailable ? colors.accentTint : '#FEF2F2' }]}>
+              <View style={[styles.availabilityDot, { backgroundColor: isAvailable ? colors.accent : colors.error }]} />
+              <Text style={[styles.availabilityText, { color: isAvailable ? colors.accentDark : colors.error }]}>
+                {isAvailable ? `${service.available} disp.` : 'Sin disp.'
+              </Text>
+            </View>
+          </View>
+
           <AppButton
             title="Reservar ahora"
             onPress={() => onReserve(service)}
             variant="primary"
             fullWidth
+            disabled={!isAvailable}
           />
         </View>
       </View>
@@ -338,248 +377,90 @@ function ServiceCardView({ service, index, onReserve }) {
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
-  scroll: {
-    paddingBottom: 32,
-  },
+  screen: { flex: 1 },
+  scroll: { paddingBottom: 32 },
 
-  /* HEADER */
   header: {
-    paddingTop: 56,
-    paddingHorizontal: 20,
-    paddingBottom: 16,
+    paddingTop: 56, paddingHorizontal: 20, paddingBottom: 16,
   },
   headerTitle: {
-    fontFamily: 'Poppins_600SemiBold',
-    fontSize: 26,
-    color: colors.blue900,
-    letterSpacing: -0.4,
-    marginBottom: 4,
+    fontFamily: 'Poppins_600SemiBold', fontSize: 26, color: colors.blue900,
+    letterSpacing: -0.4, marginBottom: 4,
   },
   headerSubtitle: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 14,
-    color: colors.gray600,
+    fontFamily: 'Inter_400Regular', fontSize: 14, color: colors.gray600,
   },
 
-  /* SEARCH */
   searchPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginHorizontal: 20,
-    paddingHorizontal: 18,
-    height: 50,
-    borderRadius: radii.full,
-    marginBottom: 18,
-    ...shadows.lg,
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    marginHorizontal: 20, paddingHorizontal: 18, height: 50,
+    borderRadius: radii.full, marginBottom: 18, ...shadows.lg,
   },
   searchPlaceholder: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 15,
-    color: colors.gray400,
-    flex: 1,
+    fontFamily: 'Inter_400Regular', fontSize: 15, color: colors.gray400, flex: 1,
   },
   searchInput: {
-    flex: 1,
-    fontFamily: 'Inter_400Regular',
-    fontSize: 15,
-    padding: 0,
-    margin: 0,
-    outlineStyle: 'none',
-    ...(Platform.OS === 'web' ? { outline: 'none' } : {}),
+    flex: 1, fontFamily: 'Inter_400Regular', fontSize: 15,
+    padding: 0, margin: 0,
   },
 
-  /* CHIPS */
-  chipsScroll: {
-    marginBottom: 12,
-  },
-  chipsContainer: {
-    paddingHorizontal: 20,
-    gap: 8,
-  },
+  chipsScroll: { marginBottom: 12 },
+  chipsContainer: { paddingHorizontal: 20, gap: 8 },
   chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: radii.full,
-    borderWidth: 1,
-    borderColor: 'transparent',
+    paddingHorizontal: 16, paddingVertical: 8,
+    borderRadius: radii.full, borderWidth: 1, borderColor: 'transparent',
   },
-  chipLabel: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 13,
-  },
+  chipLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 13 },
 
-  /* SORT */
-  sortScroll: {
-    marginBottom: 20,
-  },
-  sortContainer: {
-    paddingHorizontal: 20,
-    gap: 6,
-  },
+  sortScroll: { marginBottom: 20 },
+  sortContainer: { paddingHorizontal: 20, gap: 6 },
   sortChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: radii.full,
-    borderWidth: 1,
-    borderColor: colors.gray100,
-    backgroundColor: colors.white,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 12, paddingVertical: 7,
+    borderRadius: radii.full, borderWidth: 1,
+    borderColor: colors.gray100, backgroundColor: colors.white,
   },
-  sortLabel: {
-    fontFamily: 'Inter_500Medium',
-    fontSize: 12,
-  },
+  sortLabel: { fontFamily: 'Inter_500Medium', fontSize: 12 },
 
-  /* CARDS LIST */
-  cardsList: {
-    paddingHorizontal: 20,
-    gap: 20,
-  },
+  cardsList: { paddingHorizontal: 20, gap: 14 },
 
-  /* CARD */
-  card: {
-    borderRadius: radii.lg,
-    overflow: 'hidden',
-    ...shadows.sm,
+  card: { borderRadius: radii.lg, overflow: 'hidden', ...shadows.sm },
+  cardBody: { padding: 16, gap: 10 },
+  cardTopRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cardLogo: {
+    width: 44, height: 44, borderRadius: 22,
+    alignItems: 'center', justifyContent: 'center',
   },
-  cardImageWrap: {
-    position: 'relative',
-    height: 180,
-  },
-  cardImage: {
-    width: '100%',
-    height: '100%',
-  },
-  cardImageOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.08)',
-  },
-  statusBadge: {
-    position: 'absolute',
-    top: 12,
-    left: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: radii.full,
-  },
-  statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  statusText: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 11,
-    color: colors.white,
-  },
-  cardBody: {
-    padding: 18,
-    gap: 10,
-  },
-  cardTopRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  cardName: {
-    fontFamily: 'Poppins_600SemiBold',
-    fontSize: 17,
-    color: colors.blue900,
-    flex: 1,
-    marginRight: 8,
-    letterSpacing: -0.2,
-  },
-  cardRatingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  cardRating: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 13,
-    color: colors.blue900,
-  },
-  cardCompany: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 14,
-    color: colors.gray600,
-    marginTop: -4,
-  },
-  cardInfoRow: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  cardInfoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  cardInfoText: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 13,
-    color: colors.gray600,
-  },
-  cardPriceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-  },
-  cardPrice: {
-    fontFamily: 'Poppins_600SemiBold',
-    fontSize: 20,
-    color: colors.accent,
-    letterSpacing: -0.3,
-  },
-  cardPriceUnit: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 13,
-    color: colors.gray600,
-  },
-  cardCapacity: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 12,
-    color: colors.gray400,
-  },
-  cardTags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  tagChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radii.full,
-  },
-  tagLabel: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 11,
-  },
+  cardLogoText: { fontFamily: 'Poppins_600SemiBold', fontSize: 16, color: colors.white },
+  cardInfo: { flex: 1 },
+  cardName: { fontFamily: 'Poppins_600SemiBold', fontSize: 15, color: colors.blue900, letterSpacing: -0.2 },
+  cardCompany: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray600, marginTop: 1 },
 
-  /* EMPTY STATE */
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 60,
-    gap: 12,
+  cardMetaRow: { flexDirection: 'row', gap: 16 },
+  cardMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  cardMetaText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray600 },
+
+  cardBottomRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  emptyTitle: {
-    fontFamily: 'Poppins_600SemiBold',
-    fontSize: 18,
-    color: colors.blue900,
+  cardPrice: { fontFamily: 'Poppins_600SemiBold', fontSize: 18, color: colors.accent },
+  cardPriceUnit: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray600 },
+  availabilityBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: radii.full,
   },
+  availabilityDot: { width: 6, height: 6, borderRadius: 3 },
+  availabilityText: { fontFamily: 'Inter_600SemiBold', fontSize: 11 },
+
+  emptyState: { alignItems: 'center', paddingVertical: 60, gap: 12 },
+  emptyTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 18, color: colors.blue900 },
   emptyDesc: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 14,
-    color: colors.gray600,
-    textAlign: 'center',
-    maxWidth: 240,
+    fontFamily: 'Inter_400Regular', fontSize: 14, color: colors.gray600,
+    textAlign: 'center', maxWidth: 240,
   },
+  retryBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    paddingVertical: 10, paddingHorizontal: 20, borderRadius: radii.full,
+  },
+  retryBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.white },
 });

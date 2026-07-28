@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.security.password import verify_password, hash_password
 from app.security.jwt import create_access_token, create_refresh_token, decode_token
-from app.models.base import Usuario, Sesion, RefreshToken
+from app.models.base import Usuario, Sesion, RefreshToken, Persona, Rol, EstadoUsuario
 from app.schemas.auth import LoginRequest, TokenResponse, RefreshRequest, PasswordChangeRequest
 from app.schemas.common import ApiResponse
 
@@ -83,6 +83,56 @@ async def login(request: LoginRequest, db: AsyncSession = Depends(get_db)):
             },
         },
     )
+
+
+@router.post("/register", response_model=ApiResponse)
+async def register(request: dict, db: AsyncSession = Depends(get_db)):
+    username = request.get("username", "").strip()
+    password = request.get("password", "")
+    email = request.get("email", "").strip()
+    nombres = request.get("nombres", "").strip()
+    apellidos = request.get("apellidos", "").strip()
+
+    if not username or not password:
+        return ApiResponse(success=False, message="Username y password son requeridos")
+
+    existing = await db.execute(select(Usuario).where(Usuario.username == username))
+    if existing.scalar_one_or_none():
+        return ApiResponse(success=False, message="El usuario ya existe")
+
+    role_result = await db.execute(select(Rol).where(Rol.codigo == "CLIENTE"))
+    rol = role_result.scalar_one_or_none()
+    if not rol:
+        return ApiResponse(success=False, message="Rol CLIENTE no encontrado")
+
+    estado_result = await db.execute(select(EstadoUsuario).where(EstadoUsuario.codigo == "ACTIVO"))
+    estado = estado_result.scalar_one_or_none()
+
+    persona = Persona(
+        uuid=generate_uuid(),
+        nombres=nombres or username,
+        apellidos=apellidos or "",
+        correo=email,
+        telefono="",
+    )
+    db.add(persona)
+    await db.flush()
+
+    user = Usuario(
+        uuid=generate_uuid(),
+        username=username,
+        password_hash=hash_password(password),
+        id_persona=persona.id_persona,
+        id_rol=rol.id_rol,
+        id_estado_usuario=estado.id_estado_usuario if estado else 1,
+        estado=1,
+        intentos_fallidos=0,
+    )
+    db.add(user)
+    await db.flush()
+
+    logger.info("Registro exitoso: %s", username)
+    return ApiResponse(success=True, message="Registro exitoso")
 
 
 @router.post("/refresh", response_model=ApiResponse)
@@ -162,6 +212,69 @@ async def get_me(current_user: Usuario = Depends(get_current_user)):
             "rol_nombre": current_user.rol.nombre if current_user.rol else "",
             "correo": persona.correo if persona else "",
             "cambiar_password": current_user.cambiar_password,
+        },
+    )
+
+
+@router.get("/profile", response_model=ApiResponse)
+async def get_profile(
+    current_user: Usuario = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(Usuario)
+        .options(
+            selectinload(Usuario.persona),
+            selectinload(Usuario.rol),
+        )
+        .where(Usuario.id_usuario == current_user.id_usuario)
+    )
+    user = result.scalar_one_or_none()
+    persona = user.persona if user else None
+
+    nombre = f"{persona.nombres} {persona.apellidos}" if persona else user.username
+    direccion_data = None
+
+    if persona and persona.id_direccion:
+        from app.models.base import Direccion, Barrio, Municipio, Departamento
+        dir_result = await db.execute(
+            select(Direccion)
+            .options(
+                selectinload(Direccion.barrio).selectinload(Barrio.municipio).selectinload(Municipio.departamento)
+            )
+            .where(Direccion.id_direccion == persona.id_direccion)
+        )
+        direccion = dir_result.scalar_one_or_none()
+        if direccion:
+            barrio = direccion.barrio
+            municipio = barrio.municipio if barrio else None
+            depto = municipio.departamento if municipio else None
+            direccion_data = {
+                "direccion": direccion.direccion,
+                "complemento": direccion.complemento,
+                "barrio": barrio.nombre if barrio else None,
+                "municipio": municipio.nombre if municipio else None,
+                "departamento": depto.nombre if depto else None,
+            }
+
+    return ApiResponse(
+        success=True,
+        message="OK",
+        data={
+            "uuid": user.uuid,
+            "username": user.username,
+            "nombre_completo": nombre,
+            "nombres": persona.nombres if persona else "",
+            "apellidos": persona.apellidos if persona else "",
+            "correo": persona.correo if persona else "",
+            "telefono": persona.telefono if persona else "",
+            "numero_documento": persona.numero_documento if persona else "",
+            "foto": persona.foto if persona else None,
+            "rol": user.rol.codigo if user.rol else "",
+            "rol_nombre": user.rol.nombre if user.rol else "",
+            "direccion": direccion_data,
+            "estado": user.estado,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
         },
     )
 

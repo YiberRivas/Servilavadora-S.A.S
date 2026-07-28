@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
+from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.base import Usuario, Persona, Rol, EstadoUsuario, Empresa, EmpresaArchivo, Archivo
 from app.schemas.common import ApiResponse, PaginatedResponse
@@ -29,7 +30,11 @@ async def list_usuarios(
     current_user: Usuario = Depends(require_role("SUPER_ADMIN")),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Usuario).join(Persona, Usuario.id_persona == Persona.id_persona).join(Rol, Usuario.id_rol == Rol.id_rol)
+    query = select(Usuario).options(
+        selectinload(Usuario.persona),
+        selectinload(Usuario.rol),
+        selectinload(Usuario.estado_usuario),
+    ).join(Persona, Usuario.id_persona == Persona.id_persona).join(Rol, Usuario.id_rol == Rol.id_rol)
 
     if search:
         search_term = f"%{search}%"
@@ -91,7 +96,11 @@ async def get_usuario(
     current_user: Usuario = Depends(require_role("SUPER_ADMIN")),
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Usuario).where(Usuario.uuid == user_uuid))
+    result = await db.execute(select(Usuario).options(
+        selectinload(Usuario.persona),
+        selectinload(Usuario.rol),
+        selectinload(Usuario.estado_usuario),
+    ).where(Usuario.uuid == user_uuid))
     user = result.scalar_one_or_none()
     if not user:
         return ApiResponse(success=False, message="Usuario no encontrado")

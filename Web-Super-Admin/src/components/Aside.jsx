@@ -5,6 +5,7 @@ import {
   BarChart3, Settings, LogOut, ChevronLeft,
   TrendingUp, Home, Shield
 } from 'lucide-react'
+import { useAuth } from '../context/AuthContext'
 import styles from '../styles/components/Aside.module.css'
 
 const navSections = [
@@ -38,6 +39,7 @@ const navSections = [
 ]
 
 export default function Aside({ isOpen, onClose, onCollapsedChange }) {
+  const { logout } = useAuth()
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem('sidebar-collapsed') === 'true'
   })
@@ -126,12 +128,18 @@ export default function Aside({ isOpen, onClose, onCollapsedChange }) {
             ))}
           </nav>
 
-         <div className={styles.logoutSection}>
-            <NavLink to="/" className={styles.logoutItem} onClick={handleNavClick}>
-              <LogOut width={18} height={18} />
-              <span className={styles.navItemText}>Cerrar sesion</span>
-              <span className={styles.navItemTooltip}>Cerrar sesion</span>
-            </NavLink>
+          <div className={styles.logoutSection}>
+             <button
+               className={styles.logoutItem}
+               onClick={async () => {
+                 await logout()
+                 navigate('/')
+               }}
+             >
+               <LogOut width={18} height={18} />
+               <span className={styles.navItemText}>Cerrar sesion</span>
+               <span className={styles.navItemTooltip}>Cerrar sesion</span>
+             </button>
           </div>
 
           {/* Footer */}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { Text, useTheme, Snackbar } from 'react-native-paper';
+import { Text, useTheme, Snackbar, Icon } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import AppInput from '../../src/components/ui/AppInput';
 import AppButton from '../../src/components/ui/AppButton';
@@ -14,18 +14,19 @@ export default function ForgotPasswordScreen() {
 
   const handleSend = () => {
     if (!email) {
-      setSnackbar({ visible: true, message: 'Ingresa tu correo electrónico' });
+      setSnackbar({ visible: true, message: 'Ingresa tu correo electronico' });
       return;
     }
-    setSent(true);
+    // TODO: Conectar a endpoint de recuperacion cuando este disponible en backend
+    setSnackbar({ visible: true, message: 'Esta funcionalidad no esta disponible aun. Contacta al administrador.' });
   };
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView contentContainerStyle={[styles.scroll, { backgroundColor: colors.background }]}>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={[styles.scroll, { backgroundColor: colors.background }]} keyboardShouldPersistTaps="always" keyboardDismissMode="none">
         <View style={styles.header}>
           <View style={[styles.logoCircle, { backgroundColor: colors.primary + '20' }]}>
-            <Text style={styles.logoIcon}>🔑</Text>
+            <Icon source="key-variant" size={36} color={colors.primary} />
           </View>
           <Text variant="headlineMedium" style={[styles.title, { color: colors.onBackground }]}>
             Recuperar Contraseña
@@ -87,7 +88,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
-  logoIcon: { fontSize: 36 },
   title: { fontWeight: '700', marginBottom: 8 },
   form: { marginBottom: 32 },
   backLink: { alignItems: 'center', marginTop: 16 },

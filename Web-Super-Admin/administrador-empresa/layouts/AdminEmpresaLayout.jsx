@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Menu, Bell, ChevronDown, User, Settings, Search } from 'lucide-react'
+import { Menu, Bell, ChevronDown, User, Settings, LogOut } from 'lucide-react'
+import { useAuth } from '../../src/context/AuthContext'
+import { api } from '../../src/services/api'
 import AsideEmpresa from '../components/AsideEmpresa'
-import { empresaInfo } from '../data/mockDataEmpresa'
 import styles from '../styles/layouts/AdminEmpresaLayout.module.css'
 
 function getSaludo() {
@@ -14,19 +15,18 @@ function getSaludo() {
 
 function getFechaActual() {
   return new Date().toLocaleDateString('es-CO', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
   })
 }
 
 export default function AdminEmpresaLayout() {
+  const { user, logout } = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     return localStorage.getItem('aside-empresa-collapsed') === 'true'
   })
   const [profileOpen, setProfileOpen] = useState(false)
+  const [notifCount, setNotifCount] = useState(0)
   const profileRef = useRef(null)
   const location = useLocation()
   const navigate = useNavigate()
@@ -44,6 +44,29 @@ export default function AdminEmpresaLayout() {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  useEffect(() => {
+    const fetchNotifCount = async () => {
+      try {
+        const res = await api.get('/notificaciones/no-leidas/count')
+        if (res.success) setNotifCount(res.data.count)
+      } catch {
+        // ignore
+      }
+    }
+    fetchNotifCount()
+    const interval = setInterval(fetchNotifCount, 60000)
+    return () => clearInterval(interval)
+  }, [])
+
+  const handleLogout = async () => {
+    await logout()
+    navigate('/')
+  }
+
+  const initials = user?.nombre_completo
+    ? user.nombre_completo.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+    : 'EM'
 
   const layoutClass = `${styles.layout} ${sidebarCollapsed ? styles.layoutCollapsed : ''}`
 
@@ -67,29 +90,16 @@ export default function AdminEmpresaLayout() {
             </button>
             <div className={styles.greeting}>
               <h1 className={styles.greetingText}>
-                {getSaludo()}, <span className={styles.greetingName}>{empresaInfo.nombre}</span>
+                {getSaludo()}, <span className={styles.greetingName}>{user?.nombre_completo || 'Administrador'}</span>
               </h1>
               <span className={styles.greetingDate}>{getFechaActual()}</span>
             </div>
           </div>
 
           <div className={styles.topbarRight}>
-            <div className={styles.searchWrap}>
-              <Search width={16} height={16} className={styles.searchIcon} />
-              <input
-                type="text"
-                className={styles.searchInput}
-                placeholder="Buscar..."
-              />
-            </div>
-
             <button className={styles.iconBtn} aria-label="Notificaciones">
               <Bell width={18} height={18} />
-              <span className={styles.notifDot} />
-            </button>
-
-            <button className={styles.iconBtn} aria-label="Configuracion" onClick={() => navigate('/administrador-empresa')}>
-              <Settings width={18} height={18} />
+              {notifCount > 0 && <span className={styles.notifBadge}>{notifCount}</span>}
             </button>
 
             <div className={styles.profileWrapper} ref={profileRef}>
@@ -97,12 +107,10 @@ export default function AdminEmpresaLayout() {
                 className={styles.profileBtn}
                 onClick={() => setProfileOpen(!profileOpen)}
               >
-                <div className={styles.profileAvatar}>
-                  {empresaInfo.nombre.slice(0, 2).toUpperCase()}
-                </div>
+                <div className={styles.profileAvatar}>{initials}</div>
                 <div className={styles.profileInfo}>
-                  <span className={styles.profileName}>{empresaInfo.representante}</span>
-                  <span className={styles.profileRole}>{empresaInfo.nombre}</span>
+                  <span className={styles.profileName}>{user?.nombre_completo || 'Usuario'}</span>
+                  <span className={styles.profileRole}>{user?.rol_nombre || 'Admin Empresa'}</span>
                 </div>
                 <ChevronDown width={14} height={14} className={`${styles.profileChevron} ${profileOpen ? styles.profileChevronOpen : ''}`} />
               </button>
@@ -115,6 +123,10 @@ export default function AdminEmpresaLayout() {
                 <button className={styles.dropdownItem} onClick={() => { setProfileOpen(false); navigate('/administrador-empresa') }}>
                   <Settings width={15} height={15} />
                   Configuracion
+                </button>
+                <button className={styles.dropdownItem} onClick={handleLogout}>
+                  <LogOut width={15} height={15} />
+                  Cerrar sesion
                 </button>
               </div>
             </div>

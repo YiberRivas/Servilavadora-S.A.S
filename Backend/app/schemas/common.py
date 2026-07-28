@@ -1,24 +1,11 @@
-from typing import Any, Generic, List, Optional, TypeVar
+from typing import Any, Optional
 from pydantic import BaseModel
-
-T = TypeVar("T")
 
 
 class ApiResponse(BaseModel):
     success: bool
     message: str
     data: Optional[Any] = None
-
-
-class ApiError(BaseModel):
-    success: bool = False
-    message: str
-    errors: Optional[List[str]] = None
-
-
-class PaginationParams(BaseModel):
-    page: int = 1
-    per_page: int = 20
 
 
 class PaginatedResponse(BaseModel):

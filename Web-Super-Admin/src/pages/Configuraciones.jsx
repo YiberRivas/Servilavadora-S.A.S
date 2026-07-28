@@ -1,27 +1,68 @@
-import { useState } from 'react'
-import { configuracion } from '../data/mockData'
+import { useState, useEffect } from 'react'
+import { api } from '../services/api'
 import styles from '../styles/pages/Configuraciones.module.css'
 
 export default function Configuraciones() {
   const [config, setConfig] = useState({
-    comisionPlataforma: configuracion.comisionPlataforma || 15,
-    maxRepartidores: configuracion.maxRepartidoresPorEmpresa || 10,
-    radioCobertura: configuracion.radioCoberturaKm || 15,
-    notificacionesEmail: true,
-    notificacionesPush: true,
+    comisionPlataforma: '',
+    maxRepartidores: '',
+    radioCobertura: '',
+    notificacionesEmail: false,
+    notificacionesPush: false,
     mantenimiento: false,
   })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  const [saved, setSaved] = useState(false)
+  useEffect(() => {
+    fetchConfiguraciones()
+  }, [])
 
-  const handleChange = (field, value) => {
-    setConfig({ ...config, [field]: value })
-    setSaved(false)
+  const fetchConfiguraciones = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const response = await api.get('/configuraciones/all')
+      if (response.success && response.data) {
+        const settingsMap = {}
+        response.data.forEach((item) => {
+          settingsMap[item.clave] = item.valor
+        })
+        setConfig({
+          comisionPlataforma: settingsMap.comision_plataforma || '',
+          maxRepartidores: settingsMap.max_repartidores || '',
+          radioCobertura: settingsMap.radio_cobertura || '',
+          notificacionesEmail: settingsMap.notificaciones_email === 'true',
+          notificacionesPush: settingsMap.notificaciones_push === 'true',
+          mantenimiento: settingsMap.mantenimiento === 'true',
+        })
+      } else {
+        setError(response.message || 'Error al cargar configuraciones')
+      }
+    } catch (err) {
+      setError('Error de conexion con el servidor')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleSave = () => {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  if (loading) {
+    return (
+      <div className={styles.loading}>
+        <p>Cargando configuraciones...</p>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className={styles.error}>
+        <p>{error}</p>
+        <button className="btn btnBlue" onClick={fetchConfiguraciones}>
+          Reintentar
+        </button>
+      </div>
+    )
   }
 
   return (
@@ -36,7 +77,7 @@ export default function Configuraciones() {
               min="0"
               max="50"
               value={config.comisionPlataforma}
-              onChange={(e) => handleChange('comisionPlataforma', Number(e.target.value))}
+              readOnly
             />
           </div>
           <div className={styles.field}>
@@ -46,7 +87,7 @@ export default function Configuraciones() {
               min="1"
               max="100"
               value={config.maxRepartidores}
-              onChange={(e) => handleChange('maxRepartidores', Number(e.target.value))}
+              readOnly
             />
           </div>
           <div className={styles.field}>
@@ -56,7 +97,7 @@ export default function Configuraciones() {
               min="1"
               max="100"
               value={config.radioCobertura}
-              onChange={(e) => handleChange('radioCobertura', Number(e.target.value))}
+              readOnly
             />
           </div>
         </div>
@@ -67,7 +108,7 @@ export default function Configuraciones() {
             <span>Email</span>
             <button
               className={`${styles.toggleBtn} ${config.notificacionesEmail ? styles.active : ''}`}
-              onClick={() => handleChange('notificacionesEmail', !config.notificacionesEmail)}
+              disabled
             >
               {config.notificacionesEmail ? 'ON' : 'OFF'}
             </button>
@@ -76,7 +117,7 @@ export default function Configuraciones() {
             <span>Push</span>
             <button
               className={`${styles.toggleBtn} ${config.notificacionesPush ? styles.active : ''}`}
-              onClick={() => handleChange('notificacionesPush', !config.notificacionesPush)}
+              disabled
             >
               {config.notificacionesPush ? 'ON' : 'OFF'}
             </button>
@@ -89,7 +130,7 @@ export default function Configuraciones() {
             <span>Modo mantenimiento</span>
             <button
               className={`${styles.toggleBtn} ${config.mantenimiento ? styles.danger : ''}`}
-              onClick={() => handleChange('mantenimiento', !config.mantenimiento)}
+              disabled
             >
               {config.mantenimiento ? 'ON' : 'OFF'}
             </button>
@@ -100,13 +141,6 @@ export default function Configuraciones() {
             </p>
           )}
         </div>
-      </div>
-
-      <div className={styles.footer}>
-        {saved && <span className={styles.saved}>Guardado correctamente</span>}
-        <button className="btn btnBlue" onClick={handleSave}>
-          Guardar cambios
-        </button>
       </div>
     </div>
   )

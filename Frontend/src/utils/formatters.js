@@ -20,13 +20,6 @@ export const formatMinutes = (minutes) => {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 };
 
-export const formatTime = (seconds) => {
-  if (!seconds || isNaN(seconds)) return '0m 0s';
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins}m ${secs}s`;
-};
-
 export const getStatusColor = (status) => {
   const colors = {
     disponible: '#00a085',
@@ -53,4 +46,14 @@ export const getStatusLabel = (status) => {
     confirmado: 'Confirmado',
   };
   return labels[status] || status;
+};
+
+export const getInitials = (name) => {
+  if (!name) return '';
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
 };

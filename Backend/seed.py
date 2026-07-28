@@ -1,8 +1,19 @@
 import pymysql
 from app.security.password import hash_password
 from app.utils.uuid import generate_uuid
+import os
 
-conn = pymysql.connect(host='localhost', user='root', password='12345', port=3306, database='servilavadora_sas')
+db_url = os.getenv("DATABASE_URL", "mysql+aiomysql://root:12345@localhost:3306/servilavadora_sas")
+parts = db_url.split("://")[1]
+user_pass, rest = parts.split("@")
+user, password = user_pass.split(":")
+host_db = rest.split("/")
+host_port = host_db[0].split(":")
+host = host_port[0]
+port = int(host_port[1]) if len(host_port) > 1 else 3306
+database = host_db[1]
+
+conn = pymysql.connect(host=host, user=user, password=password, port=port, database=database)
 cur = conn.cursor()
 
 persona_uuid = generate_uuid()

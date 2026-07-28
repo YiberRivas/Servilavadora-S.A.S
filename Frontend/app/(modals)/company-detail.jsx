@@ -1,42 +1,66 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, Dimensions, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, Dimensions, Platform, ActivityIndicator } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { companies, services } from '../../src/constants/mockData';
+import { companiesService } from '../../src/services';
 import { formatCurrency, formatMinutes } from '../../src/utils/formatters';
 import { colors, radii, shadows } from '../../src/theme';
-import AppButton from '../../src/components/ui/AppButton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const LOGO_BG = [colors.accent, colors.blue700, colors.blue500, colors.accentDark, colors.blue900, colors.accent, colors.blue700, colors.gray600];
 
-function getAllImages(company) {
-  const pool = [
-    'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?auto=format&fit=crop&w=500&q=80',
-    'https://images.unsplash.com/photo-1565538810643-b5bdb714032a?auto=format&fit=crop&w=500&q=80',
-    'https://images.unsplash.com/photo-1527004013197-933c4bb611b3?auto=format&fit=crop&w=500&q=80',
-    'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=500&q=80',
-    'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=500&q=80',
-  ];
-  return [company.image, ...pool.filter((u) => u !== company.image)].slice(0, 5);
-}
-
-const trustIndicators = [
-  { icon: 'check-decagram', label: 'Empresa verificada', color: colors.accent },
-  { icon: 'star-circle', label: '4.8 calificación promedio', color: '#f59e0b' },
-  { icon: 'flash-outline', label: 'Respuesta en minutos', color: '#3b82f6' },
-  { icon: 'calendar-check', label: 'Mismo día disponible', color: '#10b981' },
-];
-
-const mockReviews = [
-  { id: 1, name: 'Ana García', initials: 'AG', rating: 5, text: 'Excelente servicio. La lavadora quedó como nueva y el personal fue muy amable. Definitivamente volveré a reservar.', date: 'Hace 2 días' },
-  { id: 2, name: 'Carlos Mendoza', initials: 'CM', rating: 4, text: 'Muy buen servicio, todo puntual. La única mejora sería tener más horarios disponibles los fines de semana.', date: 'Hace 1 semana' },
-  { id: 3, name: 'María Torres', initials: 'MT', rating: 5, text: 'Llevo usando sus servicios desde hace 3 meses y nunca he tenido problemas. Súper recomendados.', date: 'Hace 2 semanas' },
-];
+const LOGO_COLORS = ['#12A594', '#1F4E79', '#8b5cf6', '#f59e0b', '#ef4444', '#0ea5e9', '#10b981'];
 
 function getLogoBg(id) {
-  return LOGO_BG[((id || 1) - 1) % LOGO_BG.length];
+  if (!id) return LOGO_COLORS[0];
+  const idx = typeof id === 'string'
+    ? id.charCodeAt(0) % LOGO_COLORS.length
+    : id % LOGO_COLORS.length;
+  return LOGO_COLORS[idx];
 }
+
+function mapBackendToDetail(e) {
+  return {
+    id: e.uuid,
+    name: e.nombre_comercial,
+    description: e.descripcion || 'Sin descripcion',
+    image: e.logo || null,
+    neighborhood: e.neighborhood || '',
+    city: e.city || '',
+    location: e.direccion_completa || '',
+    phone: e.telefono,
+    email: e.correo,
+    rating: 0,
+    reviewCount: 0,
+    distance: 0,
+    avgTime: 45,
+    minPrice: e.tarifa_min || 3500,
+    isOpen: true,
+    verified: e.verified || false,
+    tags: [
+      e.verified && 'Verificada',
+      e.permite_reservas && 'Acepta reservas',
+    ].filter(Boolean),
+    capacities: (e.capacities || []).map((c, i) => ({
+      id: i,
+      type: c.type || 'Lavadora',
+      kg: c.kg,
+      available: c.available,
+      price: c.price,
+      price_minuto: c.price_minuto,
+      status: c.available > 0 ? 'Disponible' : 'Sin disponibilidad',
+    })),
+    schedule: { weekday: '8:00 - 20:00', saturday: '9:00 - 18:00', sunday: 'Cerrado' },
+    sucursales: e.sucursales || [],
+    info: {
+      experience: '',
+      avgClients: '',
+      coverage: '',
+      paymentMethods: ['Efectivo', 'Nequi'],
+    },
+  };
+}
+
+const mockReviews = [];
 
 function AnimatedSection({ children, delay = 0 }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -54,20 +78,131 @@ function AnimatedSection({ children, delay = 0 }) {
   );
 }
 
+const CapacityCard = React.memo(function CapacityCard({ capacity, companyId }) {
+  const isAvailable = capacity.available > 0;
+
+  const handleOrderNow = () => {
+    // TODO: Navegar a pantalla de solicitud (futuro)
+  };
+
+  const handleReserve = () => {
+    // TODO: Navegar a pantalla de reserva (futuro)
+  };
+
+  return (
+    <View style={[styles.capacityCard, { backgroundColor: colors.white }]}>
+      <View style={styles.capacityTop}>
+        <View style={[styles.capacityIconWrap, { backgroundColor: colors.accentTint }]}>
+          <Icon source="washing-machine" size={24} color={colors.accent} />
+        </View>
+        <View style={styles.capacityInfo}>
+          <Text style={styles.capacityType}>{capacity.type}</Text>
+          <Text style={styles.capacityKg}>{capacity.kg} kg</Text>
+        </View>
+        <View style={[styles.capacityStatusBadge, { backgroundColor: isAvailable ? colors.accentTint : '#FEF2F2' }]}>
+          <Text style={[styles.capacityStatusText, { color: isAvailable ? colors.accentDark : colors.error }]}>
+            {isAvailable ? `${capacity.available} disponibles` : 'Sin disponibilidad'}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.capacityPriceRow}>
+        <Text style={styles.capacityPrice}>Desde <Text style={styles.capacityPriceValue}>{formatCurrency(capacity.price)}</Text><Text style={styles.capacityPriceUnit}> / hora</Text></Text>
+      </View>
+
+      <View style={styles.capacityActions}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={handleOrderNow}
+          disabled={!isAvailable}
+          style={[styles.capacityBtn, styles.capacityBtnPrimary, { backgroundColor: isAvailable ? colors.accent : colors.gray300 }]}
+        >
+          <Text style={[styles.capacityBtnText, { color: isAvailable ? colors.white : colors.gray600 }]}>Pedir ahora</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={handleReserve}
+          disabled={!isAvailable}
+          style={[styles.capacityBtn, styles.capacityBtnSecondary, { borderColor: isAvailable ? colors.accent : colors.gray300 }]}
+        >
+          <Text style={[styles.capacityBtnText, { color: isAvailable ? colors.accent : colors.gray400 }]}>Reservar</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+});
+
 export default function CompanyDetailScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams();
-  const company = companies.find((c) => c.id === Number(id));
-
-  const companyServices = useMemo(() => services.filter((s) => s.companyId === Number(id)), [id]);
-  const galleryImages = useMemo(() => (company ? getAllImages(company) : []), [company]);
+  const [company, setCompany] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [favorite, setFavorite] = useState(false);
+  const [reviewFilter, setReviewFilter] = useState('recent');
 
-  if (!company) {
+  const loadCompany = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const response = await companiesService.get(id);
+      if (response.success && response.data) {
+        setCompany(mapBackendToDetail(response.data));
+      } else {
+        setError('Empresa no encontrada');
+      }
+    } catch (err) {
+      setError('Error al cargar la empresa');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (id) loadCompany();
+  }, [id]);
+
+  const galleryImages = useMemo(() => {
+    if (!company) return [];
+    const pool = [
+      'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?auto=format&fit=crop&w=500&q=80',
+      'https://images.unsplash.com/photo-1565538810643-b5bdb714032a?auto=format&fit=crop&w=500&q=80',
+      'https://images.unsplash.com/photo-1527004013197-933c4bb611b3?auto=format&fit=crop&w=500&q=80',
+      'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=500&q=80',
+      'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=500&q=80',
+    ];
+    return [company.image, ...pool.filter((u) => u !== company.image)].filter(Boolean).slice(0, 5);
+  }, [company]);
+
+  const sortedReviews = useMemo(() => {
+    const reviews = [...mockReviews];
+    if (reviewFilter === 'rating') {
+      reviews.sort((a, b) => b.rating - a.rating);
+    }
+    return reviews;
+  }, [reviewFilter]);
+
+  if (loading) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={colors.accent} />
+        <Text style={styles.errorText}>Cargando empresa...</Text>
+      </View>
+    );
+  }
+
+  if (error || !company) {
     return (
       <View style={styles.center}>
         <Icon source="alert-circle-outline" size={48} color={colors.gray300} />
-        <Text style={styles.errorText}>Empresa no encontrada</Text>
+        <Text style={styles.errorText}>{error || 'Empresa no encontrada'}</Text>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={loadCompany}
+          style={{ marginTop: 12, paddingVertical: 10, paddingHorizontal: 20, backgroundColor: colors.accent, borderRadius: radii.full }}
+        >
+          <Text style={{ color: colors.white, fontFamily: 'Inter_600SemiBold', fontSize: 14 }}>Reintentar</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -75,9 +210,12 @@ export default function CompanyDetailScreen() {
   return (
     <View style={styles.screen}>
       <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-        {/* ===== HERO ===== */}
         <View style={styles.heroWrap}>
-          <Image source={{ uri: company.image }} style={styles.heroCover} />
+          {company.image ? (
+            <Image source={{ uri: company.image }} style={styles.heroCover} />
+          ) : (
+            <View style={[styles.heroCover, { backgroundColor: getLogoBg(company.id) }]} />
+          )}
           <View style={styles.heroOverlay} />
           <View style={styles.heroTopBar}>
             <TouchableOpacity onPress={() => router.back()} style={styles.heroBtn}>
@@ -97,7 +235,6 @@ export default function CompanyDetailScreen() {
           </View>
         </View>
 
-        {/* ===== COMPANY INFO ===== */}
         <AnimatedSection delay={0}>
           <View style={[styles.infoCard, { backgroundColor: colors.white }]}>
             <View style={styles.infoTopRow}>
@@ -112,20 +249,19 @@ export default function CompanyDetailScreen() {
             <View style={styles.infoRatingRow}>
               <Icon source="star" size={16} color={colors.accent} />
               <Text style={styles.infoRating}>{company.rating}</Text>
-              <Text style={styles.infoReviews}>({company.reviewCount || 245} reseñas)</Text>
+              <Text style={styles.infoReviews}>({company.reviewCount || 245} resenas)</Text>
+              <Text style={styles.infoServicesCount}> · {company.servicesCount || 1000} servicios</Text>
             </View>
             <View style={styles.infoMetaRow}>
               <Icon source="map-marker-outline" size={14} color={colors.gray400} />
-              <Text style={styles.infoMetaText}>{company.location?.split('-')[0]?.trim() || 'Bogotá'} · {company.distance || 1.2} km</Text>
+              <Text style={styles.infoMetaText}>{company.neighborhood || company.city} · {company.distance || 1.2} km</Text>
               <View style={styles.metaDot} />
               <Icon source="clock-outline" size={14} color={colors.gray400} />
               <Text style={styles.infoMetaText}>~{formatMinutes(company.avgTime || 45)}</Text>
             </View>
-            <Text style={styles.infoPrice}>Desde <Text style={styles.infoPriceValue}>{formatCurrency(company.minPrice || 2500)}</Text><Text style={styles.infoPriceUnit}> / hora</Text></Text>
           </View>
         </AnimatedSection>
 
-        {/* ===== GALLERY ===== */}
         <AnimatedSection delay={60}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryContainer}>
             {galleryImages.map((url, i) => (
@@ -134,7 +270,6 @@ export default function CompanyDetailScreen() {
           </ScrollView>
         </AnimatedSection>
 
-        {/* ===== DESCRIPTION ===== */}
         <AnimatedSection delay={100}>
           <View style={[styles.sectionCard, { backgroundColor: colors.white }]}>
             <Text style={styles.sectionTitle}>Acerca de</Text>
@@ -149,108 +284,117 @@ export default function CompanyDetailScreen() {
           </View>
         </AnimatedSection>
 
-        {/* ===== TRUST ===== */}
         <AnimatedSection delay={140}>
-          <View style={styles.trustGrid}>
-            {trustIndicators.map((item, i) => (
-              <View key={i} style={[styles.trustCard, { backgroundColor: colors.white }]}>
-                <Icon source={item.icon} size={22} color={item.color} />
-                <Text style={styles.trustText}>{item.label}</Text>
-              </View>
-            ))}
-          </View>
-        </AnimatedSection>
-
-        {/* ===== SERVICES ===== */}
-        <AnimatedSection delay={180}>
           <View style={styles.sectionBlock}>
-            <Text style={[styles.sectionTitle, { paddingHorizontal: 24 }]}>Servicios disponibles</Text>
-            <View style={styles.servicesList}>
-              {companyServices.map((svc) => (
-                <View key={svc.id} style={[styles.serviceCard, { backgroundColor: colors.white }]}>
-                  <View style={styles.serviceTop}>
-                    <View style={[styles.serviceIconWrap, { backgroundColor: colors.accentTint }]}>
-                      <Icon source="washing-machine" size={22} color={colors.accent} />
-                    </View>
-                    <View style={styles.serviceInfo}>
-                      <View style={styles.serviceNameRow}>
-                        <Text style={styles.serviceName} numberOfLines={1}>{svc.name}</Text>
-                        <View style={styles.serviceRating}>
-                          <Icon source="star" size={12} color={colors.accent} />
-                          <Text style={styles.serviceRatingText}>{company.rating}</Text>
-                        </View>
-                      </View>
-                      <Text style={styles.serviceDesc} numberOfLines={2}>{svc.description}</Text>
-                      <View style={styles.serviceMeta}>
-                        <Text style={styles.servicePrice}>{formatCurrency(svc.price)}</Text>
-                        <Text style={styles.serviceSep}>·</Text>
-                        <Icon source="clock-outline" size={12} color={colors.gray400} />
-                        <Text style={styles.serviceTime}>{formatMinutes(svc.timeEstimate || 60)}</Text>
-                      </View>
-                    </View>
-                  </View>
-                  <TouchableOpacity
-                    activeOpacity={0.8}
-                    onPress={() => router.push({ pathname: '/(modals)/request-service', params: { companyId: company.id, serviceId: svc.id } })}
-                    style={[styles.serviceBtn, { backgroundColor: colors.accent }]}
-                  >
-                    <Text style={styles.serviceBtnText}>Reservar</Text>
-                  </TouchableOpacity>
-                </View>
+            <Text style={[styles.sectionTitle, { paddingHorizontal: 24 }]}>Capacidades disponibles</Text>
+            <View style={styles.capacitiesList}>
+              {company.capacities?.map((capacity) => (
+                <CapacityCard key={capacity.id} capacity={capacity} companyId={company.id} />
               ))}
-              {companyServices.length === 0 && (
-                <Text style={styles.emptyServices}>No hay servicios disponibles</Text>
+              {(!company.capacities || company.capacities.length === 0) && (
+                <Text style={styles.emptyServices}>No hay capacidades disponibles</Text>
               )}
             </View>
           </View>
         </AnimatedSection>
 
-        {/* ===== REVIEWS ===== */}
+        <AnimatedSection delay={180}>
+          <View style={[styles.sectionCard, { backgroundColor: colors.white }]}>
+            <Text style={styles.sectionTitle}>Por que elegir esta empresa</Text>
+            <View style={styles.infoGrid}>
+              <View style={styles.infoGridItem}>
+                <Icon source="briefcase-outline" size={20} color={colors.accent} />
+                <Text style={styles.infoGridLabel}>Experiencia</Text>
+                <Text style={styles.infoGridValue}>{company.info?.experience || '5 anos'}</Text>
+              </View>
+              <View style={styles.infoGridItem}>
+                <Icon source="clock-fast" size={20} color={colors.accent} />
+                <Text style={styles.infoGridLabel}>Tiempo promedio</Text>
+                <Text style={styles.infoGridValue}>~{formatMinutes(company.avgTime)}</Text>
+              </View>
+              <View style={styles.infoGridItem}>
+                <Icon source="account-group" size={20} color={colors.accent} />
+                <Text style={styles.infoGridLabel}>Clientes</Text>
+                <Text style={styles.infoGridValue}>{company.info?.avgClients || '200/mes'}</Text>
+              </View>
+              <View style={styles.infoGridItem}>
+                <Icon source="map-marker-distance" size={20} color={colors.accent} />
+                <Text style={styles.infoGridLabel}>Cobertura</Text>
+                <Text style={styles.infoGridValue}>{company.info?.coverage || '5 km'}</Text>
+              </View>
+            </View>
+            <View style={styles.paymentRow}>
+              <Icon source="credit-card-outline" size={18} color={colors.gray400} />
+              <Text style={styles.paymentLabel}>Metodos de pago:</Text>
+              <Text style={styles.paymentMethods}>{company.info?.paymentMethods?.join(', ') || 'Efectivo, Nequi'}</Text>
+            </View>
+          </View>
+        </AnimatedSection>
+
         <AnimatedSection delay={220}>
           <View style={styles.sectionBlock}>
             <View style={[styles.reviewHeader, { paddingHorizontal: 24 }]}>
               <Text style={styles.sectionTitle}>Opiniones</Text>
-              <TouchableOpacity activeOpacity={0.7}>
-                <Text style={styles.reviewAll}>Ver todas</Text>
-              </TouchableOpacity>
-            </View>
-            {mockReviews.map((review) => (
-              <View key={review.id} style={[styles.reviewCard, { backgroundColor: colors.white }]}>
-                <View style={styles.reviewTop}>
-                  <View style={[styles.reviewAvatar, { backgroundColor: getLogoBg(review.id + 5) }]}>
-                    <Text style={styles.reviewAvatarText}>{review.initials}</Text>
-                  </View>
-                  <View style={styles.reviewInfo}>
-                    <Text style={styles.reviewName}>{review.name}</Text>
-                    <View style={styles.reviewStars}>
-                      {Array.from({ length: 5 }).map((_, i) => (
-                        <Icon key={i} source="star" size={12} color={i < review.rating ? '#f59e0b' : colors.gray100} />
-                      ))}
-                    </View>
-                  </View>
-                  <Text style={styles.reviewDate}>{review.date}</Text>
-                </View>
-                <Text style={styles.reviewText}>{review.text}</Text>
+              <View style={styles.reviewFilters}>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setReviewFilter('recent')}
+                  style={[styles.reviewFilterChip, reviewFilter === 'recent' && { backgroundColor: colors.accentTint }]}
+                >
+                  <Text style={[styles.reviewFilterText, reviewFilter === 'recent' && { color: colors.accentDark }]}>Mas recientes</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setReviewFilter('rating')}
+                  style={[styles.reviewFilterChip, reviewFilter === 'rating' && { backgroundColor: colors.accentTint }]}
+                >
+                  <Text style={[styles.reviewFilterText, reviewFilter === 'rating' && { color: colors.accentDark }]}>Mejor calificadas</Text>
+                </TouchableOpacity>
               </View>
-            ))}
+            </View>
+            {sortedReviews.length === 0 ? (
+              <View style={styles.emptyReviews}>
+                <Icon source="comment-outline" size={32} color={colors.gray300} />
+                <Text style={styles.emptyReviewsText}>No hay opiniones disponibles</Text>
+              </View>
+            ) : (
+              sortedReviews.map((review) => (
+                <View key={review.id} style={[styles.reviewCard, { backgroundColor: colors.white }]}>
+                  <View style={styles.reviewTop}>
+                    <View style={[styles.reviewAvatar, { backgroundColor: getLogoBg(review.id + 5) }]}>
+                      <Text style={styles.reviewAvatarText}>{review.initials}</Text>
+                    </View>
+                    <View style={styles.reviewInfo}>
+                      <Text style={styles.reviewName}>{review.name}</Text>
+                      <View style={styles.reviewStars}>
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <Icon key={i} source="star" size={12} color={i < review.rating ? '#f59e0b' : colors.gray100} />
+                        ))}
+                      </View>
+                    </View>
+                    <Text style={styles.reviewDate}>{review.date}</Text>
+                  </View>
+                  <Text style={styles.reviewText}>{review.text}</Text>
+                </View>
+              ))
+            )}
           </View>
         </AnimatedSection>
 
-        {/* ===== SCHEDULE / CONTACT ===== */}
         <AnimatedSection delay={260}>
           <View style={[styles.sectionCard, { backgroundColor: colors.white }]}>
-            <Text style={styles.sectionTitle}>Horario y ubicación</Text>
+            <Text style={styles.sectionTitle}>Horario y ubicacion</Text>
             <View style={styles.schedRow}>
               <Icon source="clock-outline" size={16} color={colors.gray400} />
-              <Text style={styles.schedText}>Lun - Vie: 8:00 - 20:00</Text>
+              <Text style={styles.schedText}>Lun - Vie: {company.schedule?.weekday || '8:00 - 20:00'}</Text>
             </View>
             <View style={styles.schedRow}>
               <Icon source="clock-outline" size={16} color={colors.gray400} />
-              <Text style={styles.schedText}>Sáb: 9:00 - 18:00</Text>
+              <Text style={styles.schedText}>Sab: {company.schedule?.saturday || '9:00 - 18:00'}</Text>
             </View>
             <View style={styles.schedRow}>
               <Icon source="clock-outline" size={16} color={colors.gray400} />
-              <Text style={styles.schedText}>Dom: Cerrado</Text>
+              <Text style={styles.schedText}>Dom: {company.schedule?.sunday || 'Cerrado'}</Text>
             </View>
             <View style={[styles.mapPlaceholder, { backgroundColor: colors.blue100 }]}>
               <Icon source="map-outline" size={32} color={colors.blue500} />
@@ -273,10 +417,9 @@ export default function CompanyDetailScreen() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* ===== FIXED CTA ===== */}
       <View style={[styles.bottomBar, { backgroundColor: colors.white }]}>
         <View style={styles.bottomPrice}>
-          <Text style={styles.bottomPriceValue}>{formatCurrency(company.minPrice || 2500)}</Text>
+          <Text style={styles.bottomPriceValue}>{formatCurrency(company.minPrice || 3500)}</Text>
           <Text style={styles.bottomPriceLabel}>/ hora · {company.distance || 1.2} km</Text>
         </View>
         <TouchableOpacity
@@ -296,7 +439,6 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.white, gap: 12 },
   errorText: { fontFamily: 'Inter_400Regular', fontSize: 16, color: colors.gray600 },
 
-  /* ===== HERO ===== */
   heroWrap: { height: 240, position: 'relative' },
   heroCover: { width: '100%', height: '100%' },
   heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.35)' },
@@ -306,7 +448,6 @@ const styles = StyleSheet.create({
   heroLogo: { position: 'absolute', bottom: -32, left: 24, width: 72, height: 72, borderRadius: 36, borderWidth: 3, borderColor: colors.white, alignItems: 'center', justifyContent: 'center', ...shadows.md },
   heroLogoText: { fontFamily: 'Poppins_700Bold', fontSize: 30, color: colors.white },
 
-  /* ===== COMPANY INFO ===== */
   infoCard: { marginTop: 32, marginHorizontal: 24, borderRadius: radii.lg, padding: 20, ...shadows.sm },
   infoTopRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
   infoName: { fontFamily: 'Poppins_600SemiBold', fontSize: 22, color: colors.blue900, flex: 1, marginRight: 8, letterSpacing: -0.3 },
@@ -315,18 +456,14 @@ const styles = StyleSheet.create({
   infoRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 8 },
   infoRating: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.blue900 },
   infoReviews: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray400 },
-  infoMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginBottom: 10 },
+  infoServicesCount: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray400 },
+  infoMetaRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   infoMetaText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray600 },
   metaDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: colors.gray300, marginHorizontal: 4 },
-  infoPrice: { fontFamily: 'Inter_400Regular', fontSize: 14, color: colors.gray600 },
-  infoPriceValue: { fontFamily: 'Poppins_600SemiBold', fontSize: 20, color: colors.accent, letterSpacing: -0.3 },
-  infoPriceUnit: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray600 },
 
-  /* ===== GALLERY ===== */
   galleryContainer: { paddingVertical: 16, gap: 8 },
   galleryImg: { width: 140, height: 100, borderRadius: radii.md },
 
-  /* ===== SECTION ===== */
   sectionCard: { marginHorizontal: 24, borderRadius: radii.lg, padding: 20, marginBottom: 16, ...shadows.sm },
   sectionBlock: { marginBottom: 16 },
   sectionTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 17, color: colors.blue900, marginBottom: 12 },
@@ -335,33 +472,37 @@ const styles = StyleSheet.create({
   tag: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: radii.full },
   tagLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 11 },
 
-  /* ===== TRUST ===== */
-  trustGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 20, gap: 8, marginBottom: 16 },
-  trustCard: { width: (SCREEN_WIDTH - 48 - 8) / 2, borderRadius: radii.md, padding: 14, gap: 8, ...shadows.sm },
-  trustText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: colors.gray600, lineHeight: 15 },
+  capacitiesList: { paddingHorizontal: 24, gap: 12 },
+  capacityCard: { borderRadius: radii.md, padding: 16, gap: 12, ...shadows.sm },
+  capacityTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  capacityIconWrap: { width: 48, height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  capacityInfo: { flex: 1 },
+  capacityType: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.blue900, marginBottom: 2 },
+  capacityKg: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray600 },
+  capacityStatusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radii.full },
+  capacityStatusText: { fontFamily: 'Inter_600SemiBold', fontSize: 11 },
+  capacityPriceRow: { paddingHorizontal: 4 },
+  capacityPrice: { fontFamily: 'Inter_400Regular', fontSize: 14, color: colors.gray600 },
+  capacityPriceValue: { fontFamily: 'Poppins_600SemiBold', fontSize: 18, color: colors.accent },
+  capacityPriceUnit: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray600 },
+  capacityActions: { flexDirection: 'row', gap: 10 },
+  capacityBtn: { flex: 1, paddingVertical: 12, borderRadius: radii.full, alignItems: 'center', justifyContent: 'center' },
+  capacityBtnPrimary: {},
+  capacityBtnSecondary: { borderWidth: 1.5, backgroundColor: 'transparent' },
+  capacityBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 13 },
 
-  /* ===== SERVICES ===== */
-  servicesList: { paddingHorizontal: 24, gap: 12 },
-  serviceCard: { borderRadius: radii.md, padding: 16, gap: 14, ...shadows.sm },
-  serviceTop: { flexDirection: 'row', gap: 12 },
-  serviceIconWrap: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  serviceInfo: { flex: 1 },
-  serviceNameRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  serviceName: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.blue900, flex: 1, marginRight: 6 },
-  serviceRating: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-  serviceRatingText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: colors.gray600 },
-  serviceDesc: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray600, lineHeight: 17, marginBottom: 6 },
-  serviceMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  servicePrice: { fontFamily: 'Poppins_600SemiBold', fontSize: 16, color: colors.accent },
-  serviceSep: { fontFamily: 'Inter_400Regular', fontSize: 14, color: colors.gray300, marginHorizontal: 2 },
-  serviceTime: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray600 },
-  serviceBtn: { paddingVertical: 10, borderRadius: radii.full, alignItems: 'center' },
-  serviceBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.white },
-  emptyServices: { fontFamily: 'Inter_400Regular', fontSize: 14, color: colors.gray400, textAlign: 'center', paddingVertical: 20 },
+  infoGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 16 },
+  infoGridItem: { width: (SCREEN_WIDTH - 96) / 2, backgroundColor: colors.gray50, borderRadius: radii.md, padding: 14, gap: 6 },
+  infoGridLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray400 },
+  infoGridValue: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.blue900 },
+  paymentRow: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.gray100 },
+  paymentLabel: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray400 },
+  paymentMethods: { fontFamily: 'Inter_500Medium', fontSize: 12, color: colors.blue900, flex: 1 },
 
-  /* ===== REVIEWS ===== */
   reviewHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  reviewAll: { fontFamily: 'Inter_500Medium', fontSize: 13, color: colors.accentDark },
+  reviewFilters: { flexDirection: 'row', gap: 6 },
+  reviewFilterChip: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: radii.full },
+  reviewFilterText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: colors.gray400 },
   reviewCard: { marginHorizontal: 24, marginTop: 10, borderRadius: radii.md, padding: 16, ...shadows.sm },
   reviewTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
   reviewAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
@@ -372,7 +513,6 @@ const styles = StyleSheet.create({
   reviewDate: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray400 },
   reviewText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray600, lineHeight: 19 },
 
-  /* ===== SCHEDULE ===== */
   schedRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
   schedText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray600 },
   mapPlaceholder: { borderRadius: radii.md, padding: 24, alignItems: 'center', gap: 6, marginBottom: 14, marginTop: 4 },
@@ -382,7 +522,10 @@ const styles = StyleSheet.create({
   contactBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 16, borderRadius: radii.full, borderWidth: 1, borderColor: colors.gray100, flex: 1, justifyContent: 'center' },
   contactBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.accent },
 
-  /* ===== BOTTOM BAR ===== */
+  emptyReviews: { alignItems: 'center', paddingVertical: 24, gap: 8 },
+  emptyReviewsText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray400 },
+  emptyServices: { fontFamily: 'Inter_400Regular', fontSize: 14, color: colors.gray400, textAlign: 'center', paddingVertical: 20 },
+
   bottomBar: { position: 'absolute', bottom: 0, left: 0, right: 0, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 20, paddingTop: 12, paddingBottom: Platform.OS === 'ios' ? 32 : 12, borderTopWidth: 1, borderTopColor: colors.gray100 },
   bottomPrice: { flex: 1 },
   bottomPriceValue: { fontFamily: 'Poppins_700Bold', fontSize: 20, color: colors.accent, letterSpacing: -0.3 },

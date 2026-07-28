@@ -2,7 +2,7 @@ import React from 'react';
 import { TextInput, useTheme } from 'react-native-paper';
 import { radii } from '../../theme';
 
-export default function AppInput({ label, value, onChangeText, error, secureTextEntry, keyboardType, autoCapitalize, multiline, numberOfLines, disabled, placeholder, icon, onBlur }) {
+const AppInput = React.memo(function AppInput({ label, value, onChangeText, error, secureTextEntry, keyboardType, autoCapitalize, multiline, numberOfLines, disabled, placeholder, icon, onBlur }) {
   const { colors } = useTheme();
 
   return (
@@ -28,4 +28,6 @@ export default function AppInput({ label, value, onChangeText, error, secureText
       contentStyle={{ fontSize: 15 }}
     />
   );
-}
+});
+
+export default AppInput;

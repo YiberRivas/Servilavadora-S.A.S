@@ -10,7 +10,6 @@ from app.models.base import (
 from app.schemas.common import ApiResponse, PaginatedResponse
 from app.dependencies import require_role
 from app.utils.logging import get_logger
-from app.utils.uuid import generate_uuid
 from math import ceil
 
 logger = get_logger(__name__)

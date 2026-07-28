@@ -1,94 +1,81 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, TextInput, Platform } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, TextInput, Platform, RefreshControl } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import { companies } from '../../src/constants/mockData';
-import { formatCurrency, formatMinutes } from '../../src/utils/formatters';
+import { companiesService } from '../../src/services';
+import { formatMinutes } from '../../src/utils/formatters';
 import { colors, radii, shadows } from '../../src/theme';
 import AppButton from '../../src/components/ui/AppButton';
+import SkeletonCard from '../../src/components/ui/SkeletonCard';
+
+const LOGO_COLORS = ['#12A594', '#1F4E79', '#8b5cf6', '#f59e0b', '#ef4444', '#0ea5e9', '#10b981'];
+
+function getLogoBg(id) {
+  if (!id) return LOGO_COLORS[0];
+  const idx = typeof id === 'string'
+    ? id.charCodeAt(0) % LOGO_COLORS.length
+    : id % LOGO_COLORS.length;
+  return LOGO_COLORS[idx];
+}
+
+function mapBackendToUI(e) {
+  return {
+    id: e.uuid,
+    name: e.nombre_comercial,
+    description: e.descripcion || '',
+    image: e.logo || null,
+    neighborhood: e.neighborhood || '',
+    city: e.city || '',
+    location: e.direccion_completa || '',
+    phone: e.telefono,
+    email: e.correo,
+    rating: 0,
+    reviewCount: 0,
+    distance: 0,
+    avgTime: 45,
+    minPrice: e.tarifa_min || 3500,
+    isOpen: true,
+    verified: e.verified || false,
+    servicesCount: e.total_lavadoras || 0,
+    tags: [
+      e.verified && 'Verificada',
+      e.permite_reservas && 'Acepta reservas',
+    ].filter(Boolean),
+    capacities: (e.capacities || []).map((c, i) => ({
+      id: i,
+      type: c.type || 'Lavadora',
+      kg: c.kg,
+      available: c.available,
+      price: c.price,
+      status: c.available > 0 ? 'Disponible' : 'Sin disponibilidad',
+    })),
+    schedule: { weekday: '8:00 - 20:00', saturday: '9:00 - 18:00', sunday: 'Cerrado' },
+    info: {
+      experience: '',
+      avgClients: '',
+      coverage: '',
+      paymentMethods: ['Efectivo', 'Nequi'],
+    },
+  };
+}
 
 const filterOptions = [
   { key: 'all', label: 'Todas' },
-  { key: 'nearest', label: 'Más cercanas' },
+  { key: 'nearest', label: 'Cercanas' },
   { key: 'top_rated', label: 'Mejor calificadas' },
+  { key: 'open', label: 'Disponibles ahora' },
+  { key: 'accepts_booking', label: 'Aceptan reservas' },
   { key: 'express', label: 'Express' },
-  { key: 'pickup', label: 'Recogida incluida' },
-  { key: 'premium', label: 'Premium' },
-  { key: 'open', label: 'Abiertas ahora' },
+  { key: 'traditional', label: 'Lavado tradicional' },
 ];
 
-const LOGO_BG = [
-  colors.accent,
-  colors.blue700,
-  colors.blue500,
-  colors.accentDark,
-  colors.blue900,
-  colors.accent,
-  colors.blue700,
-  colors.gray600,
+const sortOptions = [
+  { key: 'rating', label: 'Calificacion' },
+  { key: 'price_asc', label: 'Menor precio' },
+  { key: 'price_desc', label: 'Mayor precio' },
+  { key: 'distance', label: 'Distancia' },
+  { key: 'availability', label: 'Disponibilidad' },
 ];
-
-function getLogoBg(id) {
-  return LOGO_BG[(id - 1) % LOGO_BG.length];
-}
-
-function SkeletonCard() {
-  const pulse = useRef(new Animated.Value(1)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulse, { toValue: 0.4, duration: 800, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 800, useNativeDriver: true }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, []);
-
-  return (
-    <View style={[styles.card, styles.skeletonCard]}>
-      <View style={styles.cardRow}>
-        <Animated.View style={[styles.skelCircle, { opacity: pulse }]} />
-        <View style={styles.skelTextBlock}>
-          <Animated.View style={[styles.skelLine, { width: '70%', opacity: pulse }]} />
-          <Animated.View style={[styles.skelLine, { width: '50%', opacity: pulse }]} />
-          <Animated.View style={[styles.skelLine, { width: '60%', opacity: pulse }]} />
-        </View>
-      </View>
-    </View>
-  );
-}
-
-function MapPlaceholder({ companies, onBack }) {
-  return (
-    <View style={styles.mapWrap}>
-      <View style={styles.mapBg}>
-        {/* decorative pins */}
-        <View style={[styles.mapPin, { top: '20%', left: '25%' }]} />
-        <View style={[styles.mapPin, { top: '45%', left: '60%' }]} />
-        <View style={[styles.mapPin, { top: '65%', left: '30%' }]} />
-        <View style={[styles.mapPinSm, { top: '35%', left: '15%' }]} />
-        <View style={[styles.mapPinSm, { top: '55%', left: '70%' }]} />
-        <View style={[styles.mapPinSm, { top: '25%', left: '50%' }]} />
-
-        {/* center card */}
-        <View style={styles.mapCenter}>
-          <Icon source="map-search-outline" size={48} color={colors.accent} />
-          <Text style={styles.mapTitle}>Vista Mapa</Text>
-          <Text style={styles.mapSub}>
-            {companies.length} empresa{companies.length !== 1 ? 's' : ''} en Bogotá
-          </Text>
-          <Text style={styles.mapHint}>Los marcadores mostrarán las empresas cercanas a tu ubicación</Text>
-          <TouchableOpacity activeOpacity={0.7} onPress={onBack} style={styles.mapBackBtn}>
-            <Icon source="format-list-bulleted" size={18} color={colors.white} />
-            <Text style={styles.mapBackLabel}>Ver como lista</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
-  );
-}
 
 function FeaturedCard({ company, onPress, index }) {
   const anim = useRef(new Animated.Value(0)).current;
@@ -101,6 +88,8 @@ function FeaturedCard({ company, onPress, index }) {
       useNativeDriver: true,
     }).start();
   }, []);
+
+  const availableCapacities = company.capacities?.filter(c => c.available > 0) || [];
 
   return (
     <Animated.View style={{ opacity: anim, transform: [{ translateY: anim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }] }}>
@@ -115,28 +104,23 @@ function FeaturedCard({ company, onPress, index }) {
           <View style={styles.featuredRating}>
             <Icon source="star" size={12} color={colors.accent} />
             <Text style={styles.featuredRatingText}>{company.rating}</Text>
+            <Text style={styles.featuredReviews}>({company.reviewCount})</Text>
           </View>
-          <View
-            style={[
-              styles.featuredStatus,
-              { backgroundColor: company.isOpen ? colors.accentTint : colors.gray100 },
-            ]}
-          >
-            <View
-              style={[
-                styles.featuredStatusDot,
-                { backgroundColor: company.isOpen ? colors.accent : colors.gray400 },
-              ]}
-            />
-            <Text
-              style={[
-                styles.featuredStatusText,
-                { color: company.isOpen ? colors.accentDark : colors.gray600 },
-              ]}
-            >
-              {company.isOpen ? 'Abierta' : 'Cerrada'}
-            </Text>
+          <Text style={styles.featuredCity} numberOfLines={1}>
+            {company.neighborhood || company.city}
+          </Text>
+          <View style={styles.featuredCapacities}>
+            {availableCapacities.slice(0, 3).map((cap) => (
+              <View key={cap.id} style={[styles.capacityPill, { backgroundColor: colors.accentTint }]}>
+                <Text style={styles.capacityText}>{cap.kg}kg</Text>
+              </View>
+            ))}
           </View>
+          <View style={styles.featuredTimeRow}>
+            <Icon source="clock-outline" size={11} color={colors.gray400} />
+            <Text style={styles.featuredTime}>~{formatMinutes(company.avgTime)}</Text>
+          </View>
+          <AppButton title="Ver empresa" onPress={() => onPress(company)} variant="outline" fullWidth />
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -164,10 +148,12 @@ function CompanyCardView({ company, onPress, index }) {
     ]).start();
   }, []);
 
+  const availableCapacities = company.capacities?.filter(c => c.available > 0) || [];
+  const hasAvailability = availableCapacities.length > 0;
+
   return (
     <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}>
       <View style={[styles.card, { backgroundColor: colors.white }]}>
-        {/* top row: logo + name + rating */}
         <View style={styles.cardRow}>
           <View style={[styles.cardLogo, { backgroundColor: getLogoBg(company.id) }]}>
             {company.image ? (
@@ -180,13 +166,10 @@ function CompanyCardView({ company, onPress, index }) {
             <Text style={styles.cardName} numberOfLines={1}>
               {company.name}
             </Text>
-            <View style={styles.cardRatingRow}>
-              <Icon source="star" size={14} color={colors.accent} />
-              <Text style={styles.cardRating}>{company.rating}</Text>
-              <Text style={styles.cardReviews}>
-                · {company.reviewCount >= 1000
-                  ? `${(company.reviewCount / 1000).toFixed(1)}k`
-                  : company.reviewCount} reseñas
+            <View style={styles.cardLocationRow}>
+              <Icon source="map-marker" size={12} color={colors.gray400} />
+              <Text style={styles.cardLocationText} numberOfLines={1}>
+                {company.neighborhood || company.city} · {company.distance} km
               </Text>
             </View>
           </View>
@@ -197,51 +180,42 @@ function CompanyCardView({ company, onPress, index }) {
           )}
         </View>
 
-        {/* info chips row */}
-        <View style={styles.cardChips}>
-          <View style={styles.chipInfo}>
-            <Icon source="map-marker" size={13} color={colors.gray400} />
-            <Text style={styles.chipInfoText}>
-              {company.location.split('-')[0].trim()} · {company.distance} km
-            </Text>
-          </View>
-          <View style={styles.chipInfo}>
-            <Icon source="clock-outline" size={13} color={colors.gray400} />
-            <Text style={styles.chipInfoText}>~{formatMinutes(company.avgTime)}</Text>
-          </View>
+        <View style={styles.cardRatingRow}>
+          <Icon source="star" size={14} color={colors.accent} />
+          <Text style={styles.cardRating}>{company.rating}</Text>
+          <Text style={styles.cardReviews}>
+            · {company.reviewCount >= 1000
+              ? `${(company.reviewCount / 1000).toFixed(1)}k`
+              : company.reviewCount} resenas
+          </Text>
+          <Text style={styles.cardServicesCount}> · {company.servicesCount} servicios</Text>
         </View>
 
-        {/* price */}
-        <Text style={styles.cardPrice}>
-          Desde{' '}
-          <Text style={styles.cardPriceValue}>{formatCurrency(company.minPrice)}</Text>
-          <Text style={styles.cardPriceUnit}> / hora</Text>
-        </Text>
+        <View style={styles.cardScheduleRow}>
+          <Icon source="clock-outline" size={13} color={colors.gray400} />
+          <Text style={styles.cardScheduleText}>{company.schedule?.weekday || 'Horario variable'}</Text>
+        </View>
 
-        {/* tags */}
-        {company.tags && company.tags.length > 0 && (
-          <View style={styles.tagsRow}>
-            {company.tags.slice(0, 4).map((tag) => (
-              <View key={tag} style={[styles.tagChip, { backgroundColor: colors.accentTint }]}>
-                <Text style={[styles.tagLabel, { color: colors.accentDark }]}>{tag}</Text>
-              </View>
-            ))}
+        {availableCapacities.length > 0 && (
+          <View style={styles.cardCapacitiesRow}>
+            <Text style={styles.cardCapacitiesLabel}>Capacidades:</Text>
+            <View style={styles.cardCapacitiesList}>
+              {availableCapacities.map((cap) => (
+                <View key={cap.id} style={[styles.capacityTag, { backgroundColor: colors.accentTint }]}>
+                  <Text style={styles.capacityTagText}>{cap.kg}kg</Text>
+                </View>
+              ))}
+            </View>
           </View>
         )}
 
-        {/* services */}
-        <View style={styles.servicesRow}>
-          {company.services.slice(0, 3).map((svc) => (
-            <View key={svc} style={[styles.serviceChip, { backgroundColor: colors.gray50 }]}>
-              <Text style={styles.serviceLabel}>{svc}</Text>
-            </View>
-          ))}
-          {company.services.length > 3 && (
-            <Text style={styles.serviceMore}>+{company.services.length - 3}</Text>
-          )}
+        <View style={styles.cardAvailabilityRow}>
+          <View style={[styles.availabilityDot, { backgroundColor: hasAvailability ? colors.accent : colors.error }]} />
+          <Text style={[styles.availabilityText, { color: hasAvailability ? colors.accentDark : colors.error }]}>
+            {hasAvailability ? 'Disponible ahora' : 'Proxima disponibilidad'}
+          </Text>
         </View>
 
-        {/* CTA */}
         <AppButton
           title="Ver empresa"
           onPress={() => onPress(company)}
@@ -257,77 +231,114 @@ export default function CompaniesScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeFilter, setActiveFilter] = useState('all');
+  const [activeSort, setActiveSort] = useState('rating');
   const [showSearch, setShowSearch] = useState(false);
-  const [viewMode, setViewMode] = useState('list');
-  const [isLoading, setIsLoading] = useState(true);
+  const [companiesData, setCompaniesData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadCompanies = useCallback(async () => {
+    try {
+      setError(null);
+      const response = await companiesService.list();
+      if (response.success && response.data) {
+        setCompaniesData(response.data.map(mapBackendToUI));
+      } else {
+        setCompaniesData([]);
+      }
+    } catch (err) {
+      setError('No se pudieron cargar las empresas. Verifica tu conexion.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
 
   useEffect(() => {
-    const t = setTimeout(() => setIsLoading(false), 700);
-    return () => clearTimeout(t);
-  }, []);
+    loadCompanies();
+  }, [loadCompanies]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    loadCompanies();
+  }, [loadCompanies]);
 
   const featured = useMemo(
     () =>
-      companies
-        .filter((c) => c.isOpen)
+      companiesData
+        .filter((c) => c.isOpen && c.rating >= 4.5)
         .sort((a, b) => b.rating - a.rating)
         .slice(0, 3),
-    []
-  );
-
-  const nearby = useMemo(
-    () => [...companies].sort((a, b) => a.distance - b.distance),
-    []
+    [companiesData]
   );
 
   const filteredList = useMemo(() => {
-    let result = [...companies];
+    let result = [...companiesData];
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
         (c) =>
           c.name.toLowerCase().includes(q) ||
+          c.neighborhood?.toLowerCase().includes(q) ||
+          c.city?.toLowerCase().includes(q) ||
           c.location.toLowerCase().includes(q) ||
-          c.services.some((s) => s.toLowerCase().includes(q)) ||
-          c.tags?.some((t) => t.toLowerCase().includes(q))
+          c.tags?.some((t) => t.toLowerCase().includes(q)) ||
+          c.capacities?.some((cap) => `${cap.kg}`.includes(q))
       );
     }
 
     if (activeFilter !== 'all') {
       switch (activeFilter) {
+        case 'open':
+          result = result.filter((c) => c.isOpen);
+          break;
+        case 'accepts_booking':
+          result = result.filter((c) => c.tags?.includes('Acepta reservas'));
+          break;
         case 'express':
           result = result.filter((c) => c.tags?.includes('Express'));
           break;
-        case 'pickup':
-          result = result.filter(
-            (c) =>
-              c.tags?.includes('Recogida incluida') || c.tags?.includes('A domicilio')
-          );
-          break;
-        case 'premium':
-          result = result.filter((c) => c.tags?.includes('Premium'));
-          break;
-        case 'open':
-          result = result.filter((c) => c.isOpen);
+        case 'traditional':
+          result = result.filter((c) => c.tags?.some(t => t.toLowerCase().includes('tradicional')));
           break;
       }
     }
 
-    switch (activeFilter) {
-      case 'nearest':
+    switch (activeSort) {
+      case 'rating':
+        result.sort((a, b) => b.rating - a.rating);
+        break;
+      case 'price_asc':
+        result.sort((a, b) => a.minPrice - b.minPrice);
+        break;
+      case 'price_desc':
+        result.sort((a, b) => b.minPrice - a.minPrice);
+        break;
+      case 'distance':
         result.sort((a, b) => a.distance - b.distance);
         break;
-      case 'top_rated':
-        result.sort((a, b) => b.rating - a.rating);
+      case 'availability':
+        result.sort((a, b) => {
+          const aAvail = a.capacities?.filter(c => c.available > 0).length || 0;
+          const bAvail = b.capacities?.filter(c => c.available > 0).length || 0;
+          return bAvail - aAvail;
+        });
         break;
     }
 
+    if (activeFilter === 'nearest') {
+      result.sort((a, b) => a.distance - b.distance);
+    } else if (activeFilter === 'top_rated') {
+      result.sort((a, b) => b.rating - a.rating);
+    }
+
     return result;
-  }, [searchQuery, activeFilter]);
+  }, [companiesData, searchQuery, activeFilter, activeSort]);
 
   const isDefaultView = activeFilter === 'all' && !searchQuery.trim();
-  const displayList = isDefaultView ? nearby : filteredList;
+  const displayList = isDefaultView ? companiesData : filteredList;
 
   const handleCompanyPress = useCallback(
     (company) => {
@@ -336,167 +347,197 @@ export default function CompaniesScreen() {
     [router]
   );
 
-  const toggleViewMode = useCallback(() => {
-    setViewMode((v) => (v === 'list' ? 'map' : 'list'));
+  const handleClearFilters = useCallback(() => {
+    setSearchQuery('');
+    setActiveFilter('all');
+    setActiveSort('rating');
   }, []);
 
   return (
     <View style={styles.screen}>
-      {/* ===== HEADER ===== */}
       <View style={[styles.header, { backgroundColor: colors.white }]}>
         <View style={styles.headerTop}>
           <View style={styles.headerTitleArea}>
             <Text style={styles.headerTitle}>Empresas</Text>
             <Text style={styles.headerSubtitle}>
-              {viewMode === 'list' ? 'Encuentra la empresa ideal' : 'Explora empresas en el mapa'}
+              Encuentra la empresa ideal para ti
             </Text>
           </View>
-          <TouchableOpacity
-            activeOpacity={0.7}
-            onPress={toggleViewMode}
-            style={[styles.viewToggle, { backgroundColor: colors.gray50 }]}
-          >
-            <Icon
-              source={viewMode === 'list' ? 'map-outline' : 'format-list-bulleted'}
-              size={20}
-              color={colors.gray600}
-            />
-          </TouchableOpacity>
         </View>
       </View>
 
-      {/* ===== LIST MODE ===== */}
-      {viewMode === 'list' ? (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.accent]} tintColor={colors.accent} />
+        }
+      >
+        <TouchableOpacity
+          style={[styles.searchPill, { backgroundColor: colors.white }]}
+          activeOpacity={0.8}
+          onPress={() => setShowSearch(true)}
         >
-          {/* SEARCH */}
-          <TouchableOpacity
-            style={[styles.searchPill, { backgroundColor: colors.white }]}
-            activeOpacity={0.8}
-            onPress={() => setShowSearch(true)}
-          >
-            <Icon source="magnify" size={20} color={colors.gray400} />
-            {showSearch ? (
-              <TextInput
-                autoFocus
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                placeholder="Buscar empresas, servicios..."
-                placeholderTextColor={colors.gray400}
-                style={[styles.searchInput, { color: colors.gray900 }]}
-                onBlur={() => {
-                  if (!searchQuery) setShowSearch(false);
-                }}
-              />
-            ) : (
-              <Text style={styles.searchPlaceholder}>Buscar empresas, servicios...</Text>
-            )}
-          </TouchableOpacity>
+          <Icon source="magnify" size={20} color={colors.gray400} />
+          {showSearch ? (
+            <TextInput
+              autoFocus
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Buscar por nombre, barrio, capacidad, servicio..."
+              placeholderTextColor={colors.gray400}
+              style={[styles.searchInput, { color: colors.gray900 }]}
+              onBlur={() => {
+                if (!searchQuery) setShowSearch(false);
+              }}
+            />
+          ) : (
+            <Text style={styles.searchPlaceholder}>Buscar por nombre, barrio, capacidad, servicio...</Text>
+          )}
+        </TouchableOpacity>
 
-          {/* FILTER CHIPS */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.filtersContainer}
-            style={styles.filtersScroll}
-          >
-            {filterOptions.map((opt) => {
-              const isActive = activeFilter === opt.key;
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filtersContainer}
+          style={styles.filtersScroll}
+        >
+          {filterOptions.map((opt) => {
+            const isActive = activeFilter === opt.key;
+            return (
+              <TouchableOpacity
+                key={opt.key}
+                activeOpacity={0.7}
+                onPress={() => setActiveFilter(opt.key)}
+                style={[
+                  styles.filterChip,
+                  isActive
+                    ? { backgroundColor: colors.accent }
+                    : { backgroundColor: colors.white, borderColor: colors.gray100 },
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.filterLabel,
+                    isActive ? { color: colors.white } : { color: colors.gray600 },
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        <View style={styles.sortRow}>
+          <Text style={styles.sortLabel}>Ordenar por:</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sortContainer}>
+            {sortOptions.map((opt) => {
+              const isActive = activeSort === opt.key;
               return (
                 <TouchableOpacity
                   key={opt.key}
                   activeOpacity={0.7}
-                  onPress={() => setActiveFilter(opt.key)}
+                  onPress={() => setActiveSort(opt.key)}
                   style={[
-                    styles.filterChip,
-                    isActive
-                      ? { backgroundColor: colors.accent }
-                      : { backgroundColor: colors.white, borderColor: colors.gray100 },
+                    styles.sortChip,
+                    isActive && { backgroundColor: colors.accentTint, borderColor: colors.accent },
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.filterLabel,
-                      isActive ? { color: colors.white } : { color: colors.gray600 },
-                    ]}
-                  >
+                  <Text style={[styles.sortChipText, isActive && { color: colors.accentDark }]}>
                     {opt.label}
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </ScrollView>
+        </View>
 
-          {/* LOADING */}
-          {isLoading ? (
-            <View style={styles.skelList}>
-              <SkeletonCard />
-              <SkeletonCard />
-              <SkeletonCard />
+        {loading ? (
+          <View style={styles.skelList}>
+            <SkeletonCard />
+            <SkeletonCard />
+            <SkeletonCard />
+          </View>
+        ) : error ? (
+          <View style={styles.emptyState}>
+            <View style={[styles.emptyIconWrap, { backgroundColor: colors.gray50 }]}>
+              <Icon source="cloud-off-outline" size={48} color={colors.gray300} />
             </View>
-          ) : (
-            <>
-              {/* FEATURED */}
-              {isDefaultView && featured.length > 0 && (
-                <View style={styles.section}>
-                  <View style={styles.sectionHeader}>
-                    <Text style={styles.sectionTitle}>Destacadas</Text>
-                    <Text style={styles.sectionHint}>Las mejores calificadas</Text>
-                  </View>
-                  <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
-                    contentContainerStyle={styles.featuredContainer}
-                  >
-                    {featured.map((c, i) => (
-                      <FeaturedCard key={c.id} company={c} index={i} onPress={handleCompanyPress} />
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
-
-              {/* RESULTS */}
+            <Text style={styles.emptyTitle}>Error de conexion</Text>
+            <Text style={styles.emptyDesc}>{error}</Text>
+            <TouchableOpacity
+              activeOpacity={0.8}
+              onPress={loadCompanies}
+              style={[styles.emptyBtn, { backgroundColor: colors.accent }]}
+            >
+              <Icon source="refresh" size={18} color={colors.white} />
+              <Text style={styles.emptyBtnText}>Reintentar</Text>
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <>
+            {isDefaultView && featured.length > 0 && (
               <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitle}>
-                    {isDefaultView ? 'Cercanas' : 'Resultados'}
-                  </Text>
-                  <Text style={styles.sectionHint}>
-                    {displayList.length} empresa{displayList.length !== 1 ? 's' : ''}
-                  </Text>
+                  <Text style={styles.sectionTitle}>Destacadas</Text>
+                  <Text style={styles.sectionHint}>Las mejores calificadas</Text>
                 </View>
-
-                {displayList.map((company, index) => (
-                  <CompanyCardView
-                    key={company.id}
-                    company={company}
-                    index={index}
-                    onPress={handleCompanyPress}
-                  />
-                ))}
-
-                {/* EMPTY */}
-                {displayList.length === 0 && (
-                  <View style={styles.emptyState}>
-                    <Icon source="store-search-outline" size={48} color={colors.gray300} />
-                    <Text style={styles.emptyTitle}>Sin resultados</Text>
-                    <Text style={styles.emptyDesc}>
-                      No encontramos empresas con esos criterios. Intenta con otros filtros o una
-                      búsqueda diferente.
-                    </Text>
-                  </View>
-                )}
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.featuredContainer}
+                >
+                  {featured.map((c, i) => (
+                    <FeaturedCard key={c.id} company={c} index={i} onPress={handleCompanyPress} />
+                  ))}
+                </ScrollView>
               </View>
-            </>
-          )}
-        </ScrollView>
-      ) : (
-        /* ===== MAP MODE ===== */
-        <MapPlaceholder companies={displayList} onBack={toggleViewMode} />
-      )}
+            )}
+
+            <View style={styles.section}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>
+                  {isDefaultView ? 'Todas las empresas' : 'Resultados'}
+                </Text>
+                <Text style={styles.sectionHint}>
+                  {displayList.length} empresa{displayList.length !== 1 ? 's' : ''}
+                </Text>
+              </View>
+
+              {displayList.map((company, index) => (
+                <CompanyCardView
+                  key={company.id}
+                  company={company}
+                  index={index}
+                  onPress={handleCompanyPress}
+                />
+              ))}
+
+              {displayList.length === 0 && (
+                <View style={styles.emptyState}>
+                  <View style={[styles.emptyIconWrap, { backgroundColor: colors.gray50 }]}>
+                    <Icon source="store-search-outline" size={48} color={colors.gray300} />
+                  </View>
+                  <Text style={styles.emptyTitle}>Sin resultados</Text>
+                  <Text style={styles.emptyDesc}>
+                    No encontramos empresas con esos criterios. Intenta con otros filtros o una busqueda diferente.
+                  </Text>
+                  <TouchableOpacity
+                    activeOpacity={0.8}
+                    onPress={handleClearFilters}
+                    style={[styles.emptyBtn, { backgroundColor: colors.accent }]}
+                  >
+                    <Icon source="filter-remove" size={18} color={colors.white} />
+                    <Text style={styles.emptyBtnText}>Limpiar filtros</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -510,7 +551,6 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
 
-  /* ===== HEADER ===== */
   header: {
     paddingTop: 56,
     paddingHorizontal: 20,
@@ -537,16 +577,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.gray600,
   },
-  viewToggle: {
-    width: 40,
-    height: 40,
-    borderRadius: radii.md,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
 
-  /* ===== SEARCH ===== */
   searchPill: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -560,23 +591,22 @@ const styles = StyleSheet.create({
   },
   searchPlaceholder: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 15,
+    fontSize: 14,
     color: colors.gray400,
     flex: 1,
   },
   searchInput: {
     flex: 1,
     fontFamily: 'Inter_400Regular',
-    fontSize: 15,
+    fontSize: 14,
     padding: 0,
     margin: 0,
     outlineStyle: 'none',
     ...(Platform.OS === 'web' ? { outline: 'none' } : {}),
   },
 
-  /* ===== FILTER CHIPS ===== */
   filtersScroll: {
-    marginBottom: 4,
+    marginBottom: 8,
   },
   filtersContainer: {
     paddingHorizontal: 20,
@@ -595,34 +625,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  /* ===== SKELETON ===== */
+  sortRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 12,
+    gap: 8,
+  },
+  sortLabel: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+    color: colors.gray600,
+  },
+  sortContainer: {
+    gap: 6,
+  },
+  sortChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radii.full,
+    borderWidth: 1,
+    borderColor: colors.gray100,
+    backgroundColor: colors.white,
+  },
+  sortChipText: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 11,
+    color: colors.gray600,
+  },
+
   skelList: {
     paddingHorizontal: 20,
     gap: 14,
     marginTop: 8,
   },
-  skeletonCard: {
-    padding: 16,
-  },
-  skelCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.gray100,
-  },
-  skelTextBlock: {
-    flex: 1,
-    marginLeft: 14,
-    gap: 10,
-    justifyContent: 'center',
-  },
-  skelLine: {
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.gray100,
-  },
 
-  /* ===== SECTIONS ===== */
   section: {
     marginTop: 12,
   },
@@ -644,40 +681,39 @@ const styles = StyleSheet.create({
     color: colors.gray600,
   },
 
-  /* ===== FEATURED ===== */
   featuredContainer: {
     paddingHorizontal: 20,
     gap: 12,
     paddingBottom: 4,
   },
   featuredCard: {
-    width: 138,
+    width: 160,
     paddingVertical: 18,
     paddingHorizontal: 14,
     borderRadius: radii.lg,
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
     ...shadows.sm,
   },
   featuredLogo: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   featuredLogoText: {
     fontFamily: 'Poppins_600SemiBold',
-    fontSize: 16,
+    fontSize: 18,
     color: colors.white,
   },
   featuredName: {
-    fontFamily: 'Inter_500Medium',
-    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 13,
     color: colors.blue900,
     textAlign: 'center',
-    lineHeight: 16,
-    height: 32,
+    lineHeight: 18,
+    height: 36,
   },
   featuredRating: {
     flexDirection: 'row',
@@ -689,53 +725,72 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.blue900,
   },
-  featuredStatus: {
+  featuredReviews: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 10,
+    color: colors.gray400,
+  },
+  featuredCity: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: colors.gray400,
+    textAlign: 'center',
+  },
+  featuredCapacities: {
     flexDirection: 'row',
-    alignItems: 'center',
+    flexWrap: 'wrap',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    justifyContent: 'center',
+  },
+  capacityPill: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
     borderRadius: radii.full,
   },
-  featuredStatusDot: {
-    width: 5,
-    height: 5,
-    borderRadius: 2.5,
+  capacityText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 9,
+    color: colors.accentDark,
   },
-  featuredStatusText: {
-    fontFamily: 'Inter_500Medium',
-    fontSize: 10,
+  featuredTimeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  featuredTime: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    color: colors.gray400,
   },
 
-  /* ===== CARD ===== */
   card: {
     marginHorizontal: 20,
     marginBottom: 14,
     borderRadius: radii.lg,
-    padding: 18,
-    gap: 12,
+    padding: 16,
+    gap: 10,
     ...shadows.sm,
   },
   cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 12,
   },
   cardLogo: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cardLogoImg: {
-    width: 48,
-    height: 48,
+    width: 52,
+    height: 52,
   },
   cardLogoText: {
     fontFamily: 'Poppins_600SemiBold',
-    fontSize: 18,
+    fontSize: 20,
     color: colors.white,
   },
   cardNameArea: {
@@ -745,13 +800,28 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins_600SemiBold',
     fontSize: 16,
     color: colors.blue900,
-    marginBottom: 2,
+    marginBottom: 3,
     letterSpacing: -0.2,
   },
+  cardLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  cardLocationText: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    color: colors.gray600,
+    flex: 1,
+  },
+  verifiedBadge: {
+    marginLeft: 4,
+  },
+
   cardRatingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 3,
+    gap: 4,
   },
   cardRating: {
     fontFamily: 'Inter_600SemiBold',
@@ -763,165 +833,83 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.gray400,
   },
-  verifiedBadge: {
-    marginLeft: 4,
+  cardServicesCount: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 12,
+    color: colors.gray400,
   },
 
-  /* ===== CARD INFO CHIPS ===== */
-  cardChips: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  chipInfo: {
+  cardScheduleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
-  chipInfoText: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 13,
-    color: colors.gray600,
-  },
-
-  /* ===== CARD PRICE ===== */
-  cardPrice: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 14,
-    color: colors.gray600,
-  },
-  cardPriceValue: {
-    fontFamily: 'Poppins_600SemiBold',
-    fontSize: 18,
-    color: colors.accent,
-    letterSpacing: -0.3,
-  },
-  cardPriceUnit: {
+  cardScheduleText: {
     fontFamily: 'Inter_400Regular',
     fontSize: 12,
     color: colors.gray600,
   },
 
-  /* ===== TAGS ===== */
-  tagsRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  tagChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radii.full,
-  },
-  tagLabel: {
-    fontFamily: 'Inter_600SemiBold',
-    fontSize: 11,
-  },
-
-  /* ===== SERVICES ===== */
-  servicesRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    alignItems: 'center',
-  },
-  serviceChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: radii.sm,
-  },
-  serviceLabel: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 11,
-    color: colors.gray600,
-  },
-  serviceMore: {
-    fontFamily: 'Inter_500Medium',
-    fontSize: 11,
-    color: colors.gray400,
-  },
-
-  /* ===== MAP ===== */
-  mapWrap: {
-    flex: 1,
-  },
-  mapBg: {
-    flex: 1,
-    backgroundColor: colors.blue100,
-    position: 'relative',
-  },
-  mapPin: {
-    position: 'absolute',
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: colors.accent,
-    opacity: 0.35,
-  },
-  mapPinSm: {
-    position: 'absolute',
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: colors.blue700,
-    opacity: 0.25,
-  },
-  mapCenter: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingHorizontal: 40,
-  },
-  mapTitle: {
-    fontFamily: 'Poppins_600SemiBold',
-    fontSize: 20,
-    color: colors.blue900,
-    marginTop: 4,
-  },
-  mapSub: {
-    fontFamily: 'Inter_500Medium',
-    fontSize: 14,
-    color: colors.gray600,
-  },
-  mapHint: {
-    fontFamily: 'Inter_400Regular',
-    fontSize: 13,
-    color: colors.gray400,
-    textAlign: 'center',
-    lineHeight: 18,
-    maxWidth: 260,
-  },
-  mapBackBtn: {
+  cardCapacitiesRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: colors.blue900,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    borderRadius: radii.full,
-    marginTop: 8,
   },
-  mapBackLabel: {
+  cardCapacitiesLabel: {
+    fontFamily: 'Inter_500Medium',
+    fontSize: 12,
+    color: colors.gray600,
+  },
+  cardCapacitiesList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  capacityTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radii.full,
+  },
+  capacityTagText: {
     fontFamily: 'Inter_600SemiBold',
-    fontSize: 14,
-    color: colors.white,
+    fontSize: 11,
+    color: colors.accentDark,
   },
 
-  /* ===== EMPTY STATE ===== */
+  cardAvailabilityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  availabilityDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  availabilityText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+  },
+
   emptyState: {
     alignItems: 'center',
     paddingVertical: 48,
     paddingHorizontal: 20,
-    gap: 10,
+    gap: 12,
+  },
+  emptyIconWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
   },
   emptyTitle: {
     fontFamily: 'Poppins_600SemiBold',
-    fontSize: 17,
+    fontSize: 18,
     color: colors.blue900,
+    textAlign: 'center',
   },
   emptyDesc: {
     fontFamily: 'Inter_400Regular',
@@ -930,5 +918,19 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 20,
     maxWidth: 280,
+  },
+  emptyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 13,
+    paddingHorizontal: 24,
+    borderRadius: radii.full,
+    marginTop: 8,
+  },
+  emptyBtnText: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 14,
+    color: colors.white,
   },
 });

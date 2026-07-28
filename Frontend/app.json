@@ -31,7 +31,18 @@
       "bundler": "metro"
     },
     "plugins": [
-      "expo-router"
-    ]
+      "expo-router",
+   
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Permitir acceso a la ubicacion para seguimiento de rutas."
+        }
+      ]
+    ],
+    "extra": {
+      "apiBaseUrl": "http://192.168.137.1:8000",
+      "wsBaseUrl": "ws://192.168.137.1:8000"
+    }
   }
 }

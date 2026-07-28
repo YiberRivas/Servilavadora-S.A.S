@@ -1,5 +1,7 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import storage from '../storage';
+import { authService } from '../services/auth.service';
+import { registerForPushNotifications, removePushToken } from '../utils/pushNotifications';
 
 const AuthContext = createContext(null);
 
@@ -14,25 +16,33 @@ export function AuthProvider({ children }) {
 
   const loadSession = async () => {
     try {
-      const storedToken = await AsyncStorage.getItem('token');
-      const storedUser = await AsyncStorage.getItem('user');
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+      const storedToken = await storage.getAccessToken();
+      if (!storedToken) {
+        setLoading(false);
+        return;
       }
-    } catch (error) {
-      console.error('Error loading session:', error);
+      const userData = await authService.getMe();
+      setToken(storedToken);
+      setUser(userData);
+    } catch {
+      await storage.clearAuth();
     } finally {
       setLoading(false);
     }
   };
 
-  const signIn = async (userData, userToken) => {
+  const signIn = async (userData, userToken, refreshToken) => {
     try {
-      await AsyncStorage.setItem('token', userToken);
-      await AsyncStorage.setItem('user', JSON.stringify(userData));
+      if (refreshToken) {
+        await storage.setTokens(userToken, refreshToken);
+      } else {
+        await storage.setAccessToken(userToken);
+      }
+      await storage.setUser(userData);
       setUser(userData);
       setToken(userToken);
+
+      registerForPushNotifications();
     } catch (error) {
       console.error('Error saving session:', error);
     }
@@ -40,17 +50,32 @@ export function AuthProvider({ children }) {
 
   const signOut = async () => {
     try {
-      await AsyncStorage.removeItem('token');
-      await AsyncStorage.removeItem('user');
+      await removePushToken();
+    } catch {}
+    try {
+      await authService.logout();
+    } catch {
+      await storage.clearAuth();
+    } finally {
       setUser(null);
       setToken(null);
+    }
+  };
+
+  const updateUser = async (newData) => {
+    try {
+      setUser((prev) => ({ ...prev, ...newData }));
+      const storedUser = await storage.getUser();
+      if (storedUser) {
+        await storage.setUser({ ...storedUser, ...newData });
+      }
     } catch (error) {
-      console.error('Error clearing session:', error);
+      console.error('Error updating user:', error);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, signIn, signOut, isAuthenticated: !!token }}>
+    <AuthContext.Provider value={{ user, token, loading, signIn, signOut, updateUser, isAuthenticated: !!token }}>
       {children}
     </AuthContext.Provider>
   );

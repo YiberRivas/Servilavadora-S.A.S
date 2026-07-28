@@ -39,7 +39,7 @@ export default function WelcomeScreen() {
     try {
       await AsyncStorage.setItem('hasLaunchedBefore', 'true');
     } catch {}
-    router.replace('/(app)');
+    router.replace('/(auth)/login');
   }, [router]);
 
   const toggleSteps = useCallback(() => {

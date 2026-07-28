@@ -3,10 +3,9 @@ import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform, Touchable
 import { Text, Icon } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
+import { authService } from '../../src/services/auth.service';
 import { colors, radii } from '../../src/theme';
 import AppButton from '../../src/components/ui/AppButton';
-
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const FIELD = {
   idle: { border: colors.gray100, icon: colors.gray400 },
@@ -21,7 +20,6 @@ export default function LoginScreen() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [emailState, setEmailState] = useState('idle');
@@ -29,46 +27,78 @@ export default function LoginScreen() {
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [generalError, setGeneralError] = useState('');
+  const [remember, setRemember] = useState(false);
 
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
   const heroFade = useRef(new Animated.Value(0)).current;
   const heroSlide = useRef(new Animated.Value(20)).current;
-  const formFade = useRef(new Animated.Value(0)).current;
-  const formSlide = useRef(new Animated.Value(30)).current;
-  const btnScale = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
     Animated.parallel([
       Animated.timing(heroFade, { toValue: 1, duration: 500, useNativeDriver: true }),
       Animated.timing(heroSlide, { toValue: 0, duration: 500, useNativeDriver: true }),
     ]).start();
-    setTimeout(() => {
-      Animated.parallel([
-        Animated.timing(formFade, { toValue: 1, duration: 450, useNativeDriver: true }),
-        Animated.timing(formSlide, { toValue: 0, duration: 450, useNativeDriver: true }),
-      ]).start();
-    }, 200);
   }, []);
 
   const handleLogin = useCallback(async () => {
     Keyboard.dismiss();
+    setGeneralError('');
+    setEmailError('');
+    setPasswordError('');
+
+    if (!email.trim()) {
+      setEmailError('El usuario es requerido');
+      setEmailState('error');
+      return;
+    }
+    if (!password) {
+      setPasswordError('La contrasena es requerida');
+      setPasswordState('error');
+      return;
+    }
+
     setLoading(true);
     try {
-      await signIn(
-        { id: 1, name: 'Juan Pérez', username: email || 'usuario', email: email.trim() || 'usuario@email.com', role: 'cliente' },
-        'mock_token_123',
-      );
-      router.replace('/(app)');
+      const result = await authService.login(email.trim(), password);
+      await signIn(result.user, result.access_token, result.refresh_token);
+      if (result.user.rol === 'REPARTIDOR') {
+        router.replace('/(driver)');
+      } else {
+        router.replace('/(app)');
+      }
+    } catch (error) {
+      const msg = error.message || 'Error al iniciar sesion';
+      if (msg.toLowerCase().includes('credenciales') || msg.toLowerCase().includes('invalidas')) {
+        setGeneralError('Usuario o contrasena incorrectos');
+      } else if (msg.toLowerCase().includes('bloqueado')) {
+        setGeneralError('Usuario bloqueado por intentos fallidos');
+      } else if (msg.toLowerCase().includes('desactivado')) {
+        setGeneralError('Usuario desactivado');
+      } else {
+        setGeneralError(msg);
+      }
     } finally {
       setLoading(false);
     }
-  }, [email, signIn, router]);
+  }, [email, password, signIn, router]);
 
   const c = (s) => FIELD[s]?.icon || colors.gray400;
   const b = (s) => FIELD[s]?.border || colors.gray100;
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} bounces={false}>
+    <KeyboardAvoidingView
+      style={styles.flex}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+        showsVerticalScrollIndicator={false}
+        bounces={false}
+      >
         {/* HERO */}
         <Animated.View style={[styles.hero, { opacity: heroFade, transform: [{ translateY: heroSlide }] }]}>
           <View style={styles.decorDiagonal} />
@@ -79,7 +109,7 @@ export default function LoginScreen() {
             <Image source={require('../../assets/images/logo.png')} style={styles.logo} resizeMode="contain" />
             <Text style={styles.welcome}>Bienvenido a ServiLavadora</Text>
             <View style={styles.propsList}>
-              <Text style={styles.propLine}>Encuentra lavanderías verificadas</Text>
+              <Text style={styles.propLine}>Encuentra lavanderias verificadas</Text>
               <Text style={styles.propLine}>Reserva en minutos</Text>
               <Text style={styles.propLine}>Compara precios y servicios</Text>
             </View>
@@ -94,7 +124,7 @@ export default function LoginScreen() {
               </View>
               <View style={styles.trustPill}>
                 <Icon source="clock-outline" size={13} color={colors.accent} />
-                <Text style={styles.trustText}>Reserva rápida</Text>
+                <Text style={styles.trustText}>Reserva rapida</Text>
               </View>
             </View>
           </View>
@@ -102,7 +132,7 @@ export default function LoginScreen() {
         </Animated.View>
 
         {/* FORM */}
-        <Animated.View style={[styles.formCard, { opacity: formFade, transform: [{ translateY: formSlide }] }]}>
+        <View style={styles.formCard}>
           <TouchableOpacity style={styles.googleBtn} activeOpacity={0.7}>
             <Icon source="google" size={20} color="#4285F4" />
             <Text style={styles.googleText}>Continuar con Google</Text>
@@ -115,44 +145,75 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Correo electrónico</Text>
-            <View style={[styles.inputWrap, { borderColor: b(emailState) }, emailState === 'focus' && styles.inputFocused]}>
-              <Icon source="email-outline" size={20} color={c(emailState)} />
+            <Text style={styles.label}>Usuario</Text>
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={() => emailRef.current?.focus()}
+              style={[styles.inputWrap, { borderColor: b(emailState) }, emailState === 'focus' && styles.inputFocused]}
+            >
+              <Icon source="account-outline" size={20} color={c(emailState)} />
               <TextInput
+                ref={emailRef}
                 style={styles.input}
-                placeholder="tucorreo@ejemplo.com"
+                placeholder="Ingresa tu usuario"
                 placeholderTextColor={colors.gray400}
                 value={email}
-                onChangeText={(v) => { setEmail(v); if (emailState === 'error') { setEmailState('idle'); setEmailError(''); } }}
+                onChangeText={(v) => {
+                  setEmail(v);
+                  if (emailState === 'error') {
+                    setEmailState('idle');
+                    setEmailError('');
+                  }
+                }}
                 onFocus={() => setEmailState('focus')}
-                onBlur={() => { if (!emailError) setEmailState(email.trim() ? 'success' : 'idle'); }}
-                keyboardType="email-address"
+                onBlur={() => {
+                  if (!emailError) setEmailState(email.trim() ? 'success' : 'idle');
+                }}
                 autoCapitalize="none"
-                autoComplete="email"
+                autoComplete="username"
+                returnKeyType="next"
+                blurOnSubmit={false}
+                onSubmitEditing={() => passwordRef.current?.focus()}
               />
-            </View>
+            </TouchableOpacity>
             {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
           </View>
 
           <View style={styles.fieldGroup}>
-            <Text style={styles.label}>Contraseña</Text>
-            <View style={[styles.inputWrap, { borderColor: b(passwordState) }, passwordState === 'focus' && styles.inputFocused]}>
+            <Text style={styles.label}>Contrasena</Text>
+            <TouchableOpacity
+              activeOpacity={1}
+              onPress={() => passwordRef.current?.focus()}
+              style={[styles.inputWrap, { borderColor: b(passwordState) }, passwordState === 'focus' && styles.inputFocused]}
+            >
               <Icon source="lock-outline" size={20} color={c(passwordState)} />
               <TextInput
+                ref={passwordRef}
                 style={styles.input}
-                placeholder="••••••••"
+                placeholder="********"
                 placeholderTextColor={colors.gray400}
                 value={password}
-                onChangeText={(v) => { setPassword(v); if (passwordState === 'error') { setPasswordState('idle'); setPasswordError(''); } }}
+                onChangeText={(v) => {
+                  setPassword(v);
+                  if (passwordState === 'error') {
+                    setPasswordState('idle');
+                    setPasswordError('');
+                  }
+                }}
                 onFocus={() => setPasswordState('focus')}
-                onBlur={() => { if (!passwordError) setPasswordState(password ? 'success' : 'idle'); }}
+                onBlur={() => {
+                  if (!passwordError) setPasswordState(password ? 'success' : 'idle');
+                }}
                 secureTextEntry={!showPassword}
                 autoComplete="password"
+                returnKeyType="done"
+                blurOnSubmit={true}
+                onSubmitEditing={handleLogin}
               />
               <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn} activeOpacity={0.6}>
                 <Icon source={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.gray400} />
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
             {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
           </View>
 
@@ -169,34 +230,24 @@ export default function LoginScreen() {
               <Text style={[styles.checkboxLabel, remember && { color: colors.blue900 }]}>Recordarme</Text>
             </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')} activeOpacity={0.7}>
-              <Text style={styles.forgotLink}>¿Olvidaste tu contraseña?</Text>
+              <Text style={styles.forgotLink}>Olvidaste tu contrasena?</Text>
             </TouchableOpacity>
           </View>
 
-          <Animated.View style={{ transform: [{ scale: btnScale }] }}>
-            <TouchableOpacity
-              activeOpacity={0.9}
-              onPress={handleLogin}
-              onPressIn={() => Animated.spring(btnScale, { toValue: 0.97, friction: 8, useNativeDriver: true }).start()}
-              onPressOut={() => Animated.spring(btnScale, { toValue: 1, friction: 4, useNativeDriver: true }).start()}
-              disabled={loading}
-            >
-              <AppButton title="Iniciar sesión" onPress={handleLogin} loading={loading} disabled={loading} fullWidth />
-            </TouchableOpacity>
-          </Animated.View>
+          <AppButton title="Iniciar sesion" onPress={handleLogin} loading={loading} disabled={loading} fullWidth />
 
           <Text style={styles.terms}>
-            Al continuar, aceptas nuestros <Text style={styles.termsLink}>Términos</Text> y{' '}
-            <Text style={styles.termsLink}>Política de privacidad</Text>.
+            Al continuar, aceptas nuestros <Text style={styles.termsLink}>Terminos</Text> y{' '}
+            <Text style={styles.termsLink}>Politica de privacidad</Text>.
           </Text>
 
           <View style={styles.footer}>
-            <Text style={styles.footerText}>¿No tienes cuenta? </Text>
+            <Text style={styles.footerText}>No tienes cuenta? </Text>
             <TouchableOpacity onPress={() => router.push('/(auth)/register')} activeOpacity={0.7}>
-              <Text style={styles.registerLink}>Regístrate gratis</Text>
+              <Text style={styles.registerLink}>Registrate gratis</Text>
             </TouchableOpacity>
           </View>
-        </Animated.View>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -206,9 +257,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1, backgroundColor: colors.blue900 },
   scroll: { flexGrow: 1 },
 
-  /* =========================================================
-     HERO
-     ========================================================= */
   hero: {
     backgroundColor: colors.blue900,
     paddingTop: 52,
@@ -308,9 +356,6 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
 
-  /* =========================================================
-     FORM CARD
-     ========================================================= */
   formCard: {
     backgroundColor: colors.white,
     paddingHorizontal: 28,
@@ -319,7 +364,6 @@ const styles = StyleSheet.create({
     gap: 20,
   },
 
-  /* Google */
   googleBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -337,7 +381,6 @@ const styles = StyleSheet.create({
     color: colors.gray900,
   },
 
-  /* Divider */
   divider: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -354,7 +397,6 @@ const styles = StyleSheet.create({
     color: colors.gray400,
   },
 
-  /* Fields */
   fieldGroup: { gap: 6 },
   label: {
     fontFamily: 'Inter_600SemiBold',
@@ -381,14 +423,12 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    height: '100%',
+    height: 44,
     fontFamily: 'Inter_400Regular',
     fontSize: 15,
     color: colors.gray900,
-    padding: 0,
-    margin: 0,
-    outlineStyle: 'none',
-    ...(Platform.OS === 'web' ? { outline: 'none' } : {}),
+    borderWidth: 0,
+    backgroundColor: 'transparent',
   },
   eyeBtn: { padding: 4, marginLeft: 4 },
   errorText: {
@@ -414,7 +454,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  /* Row */
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -436,7 +475,6 @@ const styles = StyleSheet.create({
     color: colors.accentDark,
   },
 
-  /* Terms */
   terms: {
     fontFamily: 'Inter_400Regular',
     fontSize: 11,
@@ -450,7 +488,6 @@ const styles = StyleSheet.create({
     color: colors.accentDark,
   },
 
-  /* Footer */
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',

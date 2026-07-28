@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard, Users, WashingMachine, RefreshCw, CreditCard,
   LogOut, ChevronLeft,
 } from 'lucide-react'
+import { useAuth } from '../../src/context/AuthContext'
 import styles from '../styles/components/AsideEmpresa.module.css'
 
 const navItems = [
@@ -15,6 +16,8 @@ const navItems = [
 ]
 
 export default function AsideEmpresa({ isOpen, onClose, onCollapsedChange }) {
+  const { logout } = useAuth()
+  const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem('aside-empresa-collapsed') === 'true'
   })
@@ -106,11 +109,17 @@ export default function AsideEmpresa({ isOpen, onClose, onCollapsedChange }) {
           </div>
 
           <div className={styles.logoutSection}>
-            <NavLink to="/" className={styles.logoutItem} onClick={handleNavClick}>
+            <button
+              className={styles.logoutItem}
+              onClick={async () => {
+                await logout()
+                navigate('/')
+              }}
+            >
               <LogOut width={18} height={18} />
               <span className={styles.navItemText}>Cerrar sesion</span>
               <span className={styles.navItemTooltip}>Cerrar sesion</span>
-            </NavLink>
+            </button>
           </div>
 
           <div className={styles.sidebarFooter}>

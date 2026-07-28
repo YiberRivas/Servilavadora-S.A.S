@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
+from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.base import (
     Usuario, Empresa, EstadoEmpresa, Sucursal, ConfiguracionEmpresa,
@@ -31,7 +32,7 @@ async def list_empresas(
     current_user: Usuario = Depends(require_role("SUPER_ADMIN")),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(Empresa).join(EstadoEmpresa, Empresa.id_estado_empresa == EstadoEmpresa.id_estado_empresa)
+    query = select(Empresa).options(selectinload(Empresa.estado_empresa_rel)).join(EstadoEmpresa, Empresa.id_estado_empresa == EstadoEmpresa.id_estado_empresa)
 
     if search:
         search_term = f"%{search}%"
@@ -57,7 +58,7 @@ async def list_empresas(
     data = []
     for e in empresas:
         suscripcion_result = await db.execute(
-            select(Suscripcion).join(Plan).where(
+            select(Suscripcion).options(selectinload(Suscripcion.plan)).where(
                 Suscripcion.id_empresa == e.id_empresa,
                 Suscripcion.activa == 1,
             ).order_by(Suscripcion.created_at.desc()).limit(1)
@@ -366,7 +367,10 @@ async def list_pagos_empresa(
     db: AsyncSession = Depends(get_db),
 ):
     query = (
-        select(PagoEmpresa)
+        select(PagoEmpresa).options(
+            selectinload(PagoEmpresa.metodo_pago),
+            selectinload(PagoEmpresa.estado_pago_rel),
+        )
         .join(Empresa, PagoEmpresa.id_empresa == Empresa.id_empresa)
         .join(MetodoPago, PagoEmpresa.id_metodo_pago == MetodoPago.id_metodo_pago)
         .join(EstadoPago, PagoEmpresa.id_estado_pago == EstadoPago.id_estado_pago)

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, ScrollView, KeyboardAvoidingView, Platform } from 'react-native';
-import { Text, useTheme, Snackbar, ProgressBar } from 'react-native-paper';
+import { Text, useTheme, Snackbar, ProgressBar, Icon } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import AppInput from '../../src/components/ui/AppInput';
 import AppButton from '../../src/components/ui/AppButton';
@@ -59,24 +59,15 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!validateStep2()) return;
-    setLoading(true);
-    try {
-      // Mock register
-      setTimeout(() => {
-        setSnackbar({ visible: true, message: 'Registro exitoso. Ahora inicia sesión.' });
-        setTimeout(() => router.replace('/(auth)/login'), 1500);
-      }, 1000);
-    } finally {
-      setLoading(false);
-    }
+    setSnackbar({ visible: true, message: 'El registro no esta disponible aun. Contacta al administrador.' });
   };
 
   return (
-    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView contentContainerStyle={[styles.scroll, { backgroundColor: colors.background }]}>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={[styles.scroll, { backgroundColor: colors.background }]} keyboardShouldPersistTaps="always" keyboardDismissMode="none">
         <View style={styles.header}>
           <View style={[styles.logoCircle, { backgroundColor: colors.primary + '20' }]}>
-            <Text style={styles.logoIcon}>🧺</Text>
+            <Icon source="washing-machine" size={36} color={colors.primary} />
           </View>
           <Text variant="headlineMedium" style={[styles.title, { color: colors.onBackground }]}>
             Crear Cuenta

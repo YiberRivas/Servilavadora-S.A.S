@@ -213,6 +213,7 @@ class Usuario(Base):
     sesiones = relationship("Sesion", back_populates="usuario")
     refresh_tokens = relationship("RefreshToken", back_populates="usuario")
     notificaciones = relationship("Notificacion", back_populates="usuario")
+    device_tokens = relationship("DeviceToken", back_populates="usuario")
 
 
 class Sesion(Base):
@@ -692,6 +693,7 @@ class Alquiler(Base):
     devoluciones = relationship("DevolucionLavadora", back_populates="alquiler")
     liquidaciones = relationship("LiquidacionAlquiler", back_populates="alquiler")
     historial_ruta = relationship("HistorialRuta", back_populates="alquiler")
+    ruta_gps = relationship("RutaGPS", back_populates="alquiler", uselist=False)
 
 
 class CronometroAlquiler(Base):
@@ -991,6 +993,54 @@ class HistorialRuta(Base):
     alquiler = relationship("Alquiler", back_populates="historial_ruta")
 
 
+class RutaGPS(Base):
+    __tablename__ = "ruta_gps"
+    id_ruta_gps = Column(BigInteger, primary_key=True, autoincrement=True)
+    uuid = Column(String(36), nullable=False, unique=True)
+    id_alquiler = Column(BigInteger, ForeignKey("alquiler.id_alquiler"), nullable=False, unique=True)
+    id_repartidor = Column(BigInteger, ForeignKey("repartidor.id_repartidor"), nullable=False)
+    id_empresa = Column(BigInteger, ForeignKey("empresa.id_empresa"), nullable=False)
+    latitud_actual = Column(Numeric(10, 8))
+    longitud_actual = Column(Numeric(11, 8))
+    latitud_destino = Column(Numeric(10, 8))
+    longitud_destino = Column(Numeric(11, 8))
+    latitud_cliente = Column(Numeric(10, 8))
+    longitud_cliente = Column(Numeric(11, 8))
+    velocidad = Column(Numeric(6, 2), default=0)
+    heading = Column(Numeric(5, 2), default=0)
+    precision_gps = Column("precision", Numeric(8, 2))
+    distancia_restante_metros = Column(Integer, default=0)
+    tiempo_estimado_segundos = Column(Integer, default=0)
+    notificado_cerca = Column(SmallInteger, default=0)
+    estado = Column(String(30), nullable=False, default="PENDIENTE")
+    ultima_actualizacion = Column(DateTime)
+    fecha_inicio = Column(DateTime)
+    fecha_fin = Column(DateTime)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+    updated_at = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
+
+    alquiler = relationship("Alquiler", back_populates="ruta_gps")
+    repartidor = relationship("Repartidor")
+    empresa = relationship("Empresa")
+    ubicaciones = relationship("UbicacionRuta", back_populates="ruta_gps", order_by="UbicacionRuta.timestampGPS")
+
+
+class UbicacionRuta(Base):
+    __tablename__ = "ubicacion_ruta"
+    id_ubicacion_ruta = Column(BigInteger, primary_key=True, autoincrement=True)
+    uuid = Column(String(36), nullable=False, unique=True)
+    id_ruta_gps = Column(BigInteger, ForeignKey("ruta_gps.id_ruta_gps"), nullable=False)
+    latitud = Column(Numeric(10, 8), nullable=False)
+    longitud = Column(Numeric(11, 8), nullable=False)
+    precision_gps = Column("precision", Numeric(8, 2))
+    heading = Column(Numeric(5, 2))
+    velocidad = Column(Numeric(6, 2))
+    timestampGPS = Column(DateTime, nullable=False)
+    created_at = Column(DateTime, nullable=False, server_default=func.now())
+
+    ruta_gps = relationship("RutaGPS", back_populates="ubicaciones")
+
+
 class Notificacion(Base):
     __tablename__ = "notificacion"
     id_notificacion = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -999,11 +1049,29 @@ class Notificacion(Base):
     titulo = Column(String(200), nullable=False)
     mensaje = Column(Text, nullable=False)
     tipo = Column(String(50))
+    icono = Column(String(100))
+    color = Column(String(20))
+    data = Column(Text)
     leida = Column(SmallInteger, default=0)
     fecha_lectura = Column(DateTime)
     created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
     usuario = relationship("Usuario", back_populates="notificaciones")
+
+
+class DeviceToken(Base):
+    __tablename__ = "device_token"
+    id_device_token = Column(BigInteger, primary_key=True, autoincrement=True)
+    uuid = Column(String(36), nullable=False, unique=True)
+    id_usuario = Column(BigInteger, ForeignKey("usuario.id_usuario"), nullable=False)
+    expo_push_token = Column(String(500), nullable=False)
+    dispositivo = Column(String(200))
+    activo = Column(SmallInteger, nullable=False, default=1)
+    created_at = Column(DateTime, server_default=func.now())
+    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    usuario = relationship("Usuario", back_populates="device_tokens")
 
 
 class Auditoria(Base):

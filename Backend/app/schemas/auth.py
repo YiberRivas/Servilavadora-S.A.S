@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Optional
 from pydantic import BaseModel
 
@@ -21,14 +20,3 @@ class RefreshRequest(BaseModel):
 class PasswordChangeRequest(BaseModel):
     current_password: str
     new_password: str
-
-
-class UserBasicResponse(BaseModel):
-    uuid: str
-    username: str
-    nombre_completo: str
-    rol: str
-    estado: str
-
-    class Config:
-        from_attributes = True

@@ -1,22 +1,18 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext'
 import styles from '../styles/pages/Login.module.css'
-
-// ─── Credenciales mock ────────────────────────────────────────────
-// TODO: reemplazar por validacion real contra backend.
-// El backend debe devolver un "rol" o "tipo_usuario" para decidir la redireccion.
-const MOCK_SUPER_ADMIN = { email: 'admin@servilavadora.co', password: '123456' }
-const MOCK_EMPRESA_ADMIN = { email: 'adminempresa@cleanhouse.co', password: '123456' }
 
 export default function Login() {
   const navigate = useNavigate()
+  const { login } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     const newErrors = {}
 
@@ -31,26 +27,20 @@ export default function Login() {
     if (Object.keys(newErrors).length > 0) return
 
     setLoading(true)
-    setTimeout(() => {
-      // ── Super Admin ──────────────────────────────
-      if (email === MOCK_SUPER_ADMIN.email && password === MOCK_SUPER_ADMIN.password) {
+    const result = await login(email, password)
+
+    if (result.success) {
+      if (result.user.rol === 'SUPER_ADMIN') {
         navigate('/admin')
-        return
-      }
-
-      // ── Admin Empresa ────────────────────────────
-      // TODO: cuando exista backend, el login devolvera el rol y se usa ahi:
-      //   if (rol === 'super_admin')      navigate('/admin')
-      //   else if (rol === 'admin_empresa') navigate('/administrador-empresa')
-      if (email === MOCK_EMPRESA_ADMIN.email && password === MOCK_EMPRESA_ADMIN.password) {
+      } else if (result.user.rol === 'ADMIN_EMPRESA') {
         navigate('/administrador-empresa')
-        return
+      } else {
+        navigate('/')
       }
-
-      // ── Credenciales incorrectas ─────────────────
+    } else {
       setLoading(false)
-      setErrors({ credentials: 'Correo o contrasena incorrectos.' })
-    }, 800)
+      setErrors({ credentials: result.message })
+    }
   }
 
   return (
@@ -87,7 +77,7 @@ export default function Login() {
         <div className={styles.card}>
           <div className={styles.cardHeader}>
             <h2>Inicia sesion</h2>
-            <p>Ingresa con tu cuenta de Super Admin</p>
+            <p>Ingresa con tu cuenta de administrador</p>
           </div>
 
           <form className={styles.form} onSubmit={handleSubmit} noValidate>
@@ -130,9 +120,7 @@ export default function Login() {
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setErrors(prev => ({ ...prev, password: undefined })) }}
                 />
-            {errors.credentials && <span className="error" style={{ textAlign: 'center' }}>{errors.credentials}</span>}
-
-            <button
+                <button
                   type="button"
                   className="togglePass"
                   onClick={() => setShowPassword(!showPassword)}
@@ -155,6 +143,8 @@ export default function Login() {
               </div>
               {errors.password && <span className="error">{errors.password}</span>}
             </div>
+
+            {errors.credentials && <span className="error" style={{ textAlign: 'center' }}>{errors.credentials}</span>}
 
             <div className="formRow">
               <label className="checkbox">

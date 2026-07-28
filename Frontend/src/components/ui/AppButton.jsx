@@ -10,7 +10,7 @@ const VARIANT_CONFIG = {
   white: { mode: 'contained' },
 };
 
-export default function AppButton({ title, onPress, variant = 'primary', loading, disabled, icon, fullWidth, style, labelStyle }) {
+const AppButton = React.memo(function AppButton({ title, onPress, variant = 'primary', loading, disabled, icon, fullWidth, style, labelStyle }) {
   const { colors } = useTheme();
   const config = VARIANT_CONFIG[variant];
 
@@ -23,7 +23,7 @@ export default function AppButton({ title, onPress, variant = 'primary', loading
       case 'ghost':
         return { textColor: colors.onBackground };
       case 'white':
-        return { buttonColor: colors.white, textColor: '#1F4E79' };
+        return { buttonColor: colors.white, textColor: colors.blue700 };
       default:
         return { buttonColor: colors.primary, textColor: colors.onPrimary };
     }
@@ -52,7 +52,9 @@ export default function AppButton({ title, onPress, variant = 'primary', loading
       {title}
     </Button>
   );
-}
+});
+
+export default AppButton;
 
 const styles = StyleSheet.create({
   base: {

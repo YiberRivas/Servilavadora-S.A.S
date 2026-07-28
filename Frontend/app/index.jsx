@@ -3,10 +3,12 @@ import { View, StyleSheet, Animated, Image } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Text } from 'react-native-paper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useAuth } from '../src/context/AuthContext';
 import { colors } from '../src/theme';
 
 export default function SplashScreen() {
   const router = useRouter();
+  const { user, loading } = useAuth();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(0.3)).current;
 
@@ -18,15 +20,23 @@ export default function SplashScreen() {
 
     const timer = setTimeout(async () => {
       try {
+        if (user) {
+          if (user.rol === 'REPARTIDOR') {
+            router.replace('/(driver)');
+          } else {
+            router.replace('/(app)');
+          }
+          return;
+        }
         const hasLaunched = await AsyncStorage.getItem('hasLaunchedBefore');
-        router.replace(hasLaunched ? '/(app)' : '/welcome');
+        router.replace(hasLaunched ? '/(auth)/login' : '/welcome');
       } catch {
         router.replace('/welcome');
       }
     }, 2000);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [user, loading]);
 
   return (
     <View style={styles.container}>
