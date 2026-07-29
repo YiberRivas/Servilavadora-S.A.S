@@ -358,7 +358,7 @@ function ServiceCardView({ service, index, onReserve }) {
             <View style={[styles.availabilityBadge, { backgroundColor: isAvailable ? colors.accentTint : '#FEF2F2' }]}>
               <View style={[styles.availabilityDot, { backgroundColor: isAvailable ? colors.accent : colors.error }]} />
               <Text style={[styles.availabilityText, { color: isAvailable ? colors.accentDark : colors.error }]}>
-                {isAvailable ? `${service.available} disp.` : 'Sin disp.'
+                {isAvailable ? `${service.available} disp.` : 'Sin disp.'}
               </Text>
             </View>
           </View>

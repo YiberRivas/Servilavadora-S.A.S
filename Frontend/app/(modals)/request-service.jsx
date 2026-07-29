@@ -30,10 +30,7 @@ const PAYMENT_METHODS = [
   { key: 'transfer', label: 'Transferencia', icon: 'bank-transfer' },
 ];
 
-const savedAddresses = [
-  { id: 1, label: 'Casa', address: 'Calle 123 #45-67, Barrio Centro', icon: 'home-outline', details: 'Apartamento 502, Torre A' },
-  { id: 2, label: 'Trabajo', address: 'Av. El Dorado #50-20, Chapinero', icon: 'briefcase-outline', details: 'Oficina 301, Piso 3' },
-];
+const savedAddresses = [];
 
 function generateDates() {
   const dates = [];
@@ -405,7 +402,7 @@ export default function RequestServiceScreen() {
             <Text style={styles.stepTitle}>Direccion del servicio</Text>
             <Text style={styles.stepSubtitle}>Donde quieres recibir el servicio?</Text>
 
-            {savedAddresses.map((addr) => (
+            {savedAddresses.length > 0 && savedAddresses.map((addr) => (
               <TouchableOpacity
                 key={addr.id}
                 activeOpacity={0.7}
@@ -426,16 +423,27 @@ export default function RequestServiceScreen() {
               </TouchableOpacity>
             ))}
 
-            <TouchableOpacity
-              activeOpacity={0.7}
-              onPress={() => { setShowCustomAddress(true); setSelectedAddress(null); clearErrors(); }}
-              style={[styles.addCustomBtn, showCustomAddress && { backgroundColor: colors.accentTint }]}
-            >
-              <Icon source={showCustomAddress ? 'plus-circle' : 'plus-circle-outline'} size={20} color={colors.accent} />
-              <Text style={styles.addCustomText}>Agregar otra direccion</Text>
-            </TouchableOpacity>
+            {savedAddresses.length > 0 ? (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => { setShowCustomAddress(true); setSelectedAddress(null); clearErrors(); }}
+                style={[styles.addCustomBtn, showCustomAddress && { backgroundColor: colors.accentTint }]}
+              >
+                <Icon source={showCustomAddress ? 'plus-circle' : 'plus-circle-outline'} size={20} color={colors.accent} />
+                <Text style={styles.addCustomText}>Agregar otra direccion</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => { setShowCustomAddress(true); clearErrors(); }}
+                style={[styles.addCustomBtn, { backgroundColor: colors.accentTint }]}
+              >
+                <Icon source="plus-circle" size={20} color={colors.accent} />
+                <Text style={styles.addCustomText}>Agregar direccion</Text>
+              </TouchableOpacity>
+            )}
 
-            {showCustomAddress && (
+            {(showCustomAddress || savedAddresses.length === 0) && (
               <View style={[styles.customAddrWrap, { backgroundColor: colors.white }]}>
                 <Text style={styles.customAddrLabel}>Direccion principal</Text>
                 <TextInput
