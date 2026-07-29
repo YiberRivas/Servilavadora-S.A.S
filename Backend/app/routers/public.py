@@ -19,7 +19,7 @@ async def _get_empresa_completa(empresa_uuid: str, db: AsyncSession):
             selectinload(Empresa.estado_empresa_rel),
             selectinload(Empresa.direccion).selectinload(Direccion.barrio).selectinload(Barrio.municipio),
             selectinload(Empresa.configuracion),
-            selectinload(Empresa.sucursales),
+            selectinload(Empresa.sucursales).selectinload(Sucursal.direccion),
         )
         .where(Empresa.uuid == empresa_uuid, Empresa.estado == 1)
     )

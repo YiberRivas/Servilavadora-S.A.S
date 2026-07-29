@@ -70,6 +70,10 @@ export default function HomeScreen() {
     () => companiesData.reduce((sum, c) => sum + c.total_lavadoras, 0),
     [companiesData]
   );
+  const totalCiudades = useMemo(
+    () => new Set(companiesData.map((c) => c.city).filter(Boolean)).size || 1,
+    [companiesData]
+  );
 
   const handleCompanyPress = useCallback(
     (company) => {
@@ -78,22 +82,9 @@ export default function HomeScreen() {
     [router]
   );
 
-  const categoryColors = [colors.blue100, colors.accentTint, colors.blue100, colors.accentTint, colors.blue100, colors.accentTint];
-  const categoryIconColors = [colors.blue700, colors.accentDark, colors.blue700, colors.accentDark, colors.blue700, colors.accentDark];
-
-  const renderCategory = (cat, index) => (
-    <TouchableOpacity
-      key={index}
-      style={[styles.categoryChip, { backgroundColor: colors.white, borderColor: colors.gray100 }]}
-      activeOpacity={0.7}
-      onPress={() => router.push('/(app)/services')}
-    >
-      <View style={[styles.categoryIconBox, { backgroundColor: categoryColors[index] }]}>
-        <Icon source={cat.icon} size={18} color={categoryIconColors[index]} />
-      </View>
-      <Text style={styles.categoryLabel}>{cat.label}</Text>
-    </TouchableOpacity>
-  );
+  const handleNotifPress = useCallback(() => {
+    router.push('/(app)/notifications');
+  }, [router]);
 
   const renderCompany = useCallback(({ item }) => (
     <TouchableOpacity
@@ -143,7 +134,7 @@ export default function HomeScreen() {
               <Icon source="map-marker" size={14} color={colors.accent} />
               <Text style={styles.locationText}>Quibdo</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.notifButton} activeOpacity={0.7}>
+            <TouchableOpacity style={styles.notifButton} activeOpacity={0.7} onPress={handleNotifPress}>
               <Ionicons name="notifications-outline" size={20} color={colors.gray600} />
             </TouchableOpacity>
           </View>
@@ -171,10 +162,34 @@ export default function HomeScreen() {
             </TouchableOpacity>
 
             <View style={styles.categoryGrid}>
-              {homeCategories.slice(0, 3).map((cat, i) => renderCategory(cat, i))}
+              {homeCategories.slice(0, 3).map((cat, i) => (
+                <TouchableOpacity
+                  key={cat.label}
+                  style={[styles.categoryChip, { backgroundColor: colors.white, borderColor: colors.gray100 }]}
+                  activeOpacity={0.7}
+                  onPress={() => router.push('/(app)/services')}
+                >
+                  <View style={[styles.categoryIconBox, { backgroundColor: i % 2 === 0 ? colors.blue100 : colors.accentTint }]}>
+                    <Icon source={cat.icon} size={18} color={i % 2 === 0 ? colors.blue700 : colors.accentDark} />
+                  </View>
+                  <Text style={styles.categoryLabel}>{cat.label}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
             <View style={styles.categoryGrid}>
-              {homeCategories.slice(3).map((cat, i) => renderCategory(cat, i + 3))}
+              {homeCategories.slice(3).map((cat, i) => (
+                <TouchableOpacity
+                  key={cat.label}
+                  style={[styles.categoryChip, { backgroundColor: colors.white, borderColor: colors.gray100 }]}
+                  activeOpacity={0.7}
+                  onPress={() => router.push('/(app)/services')}
+                >
+                  <View style={[styles.categoryIconBox, { backgroundColor: (i + 3) % 2 === 0 ? colors.blue100 : colors.accentTint }]}>
+                    <Icon source={cat.icon} size={18} color={(i + 3) % 2 === 0 ? colors.blue700 : colors.accentDark} />
+                  </View>
+                  <Text style={styles.categoryLabel}>{cat.label}</Text>
+                </TouchableOpacity>
+              ))}
             </View>
           </View>
         </View>
@@ -192,7 +207,7 @@ export default function HomeScreen() {
           </View>
           <View style={[styles.trustDivider, { backgroundColor: colors.gray100 }]} />
           <View style={styles.trustItem}>
-            <Text style={styles.trustValue}>{totalEmpresas > 0 ? '1' : '0'}</Text>
+            <Text style={styles.trustValue}>{totalCiudades}</Text>
             <Text style={styles.trustLabel}>ciudades</Text>
           </View>
         </View>

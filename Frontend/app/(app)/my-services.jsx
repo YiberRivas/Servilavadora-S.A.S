@@ -434,7 +434,7 @@ export default function MyServicesScreen() {
 
         {/* CARDS */}
         {filtered.map((service, index) => (
-          <ServiceCard key={service.id} service={service} index={index} onViewDetail={handleViewDetail} />
+          <ServiceCard key={service.uuid || service.id || index} service={service} index={index} onViewDetail={handleViewDetail} />
         ))}
 
         {/* EMPTY STATE */}

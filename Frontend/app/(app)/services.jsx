@@ -275,7 +275,7 @@ export default function ServicesScreen() {
           ) : (
             filtered.map((service, index) => (
               <ServiceCardView
-                key={service.id}
+                key={service.uuid || service.id || index}
                 service={service}
                 index={index}
                 onReserve={handleReserve}

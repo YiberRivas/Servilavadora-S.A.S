@@ -490,7 +490,7 @@ export default function CompaniesScreen() {
                   contentContainerStyle={styles.featuredContainer}
                 >
                   {featured.map((c, i) => (
-                    <FeaturedCard key={c.id} company={c} index={i} onPress={handleCompanyPress} />
+                    <FeaturedCard key={c.uuid || c.id || i} company={c} index={i} onPress={handleCompanyPress} />
                   ))}
                 </ScrollView>
               </View>
@@ -508,7 +508,7 @@ export default function CompaniesScreen() {
 
               {displayList.map((company, index) => (
                 <CompanyCardView
-                  key={company.id}
+                  key={company.uuid || company.id || index}
                   company={company}
                   index={index}
                   onPress={handleCompanyPress}
