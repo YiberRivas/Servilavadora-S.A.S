@@ -41,12 +41,11 @@ function mapBackendToDetail(e) {
       e.permite_reservas && 'Acepta reservas',
     ].filter(Boolean),
     capacities: (e.capacities || []).map((c, i) => ({
-      id: i,
+      id: `${e.uuid}-${i}`,
       type: c.type || 'Lavadora',
       kg: c.kg,
       available: c.available,
       price: c.price,
-      price_minuto: c.price_minuto,
       status: c.available > 0 ? 'Disponible' : 'Sin disponibilidad',
     })),
     schedule: { weekday: '8:00 - 20:00', saturday: '9:00 - 18:00', sunday: 'Cerrado' },
@@ -265,7 +264,7 @@ export default function CompanyDetailScreen() {
         <AnimatedSection delay={60}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.galleryContainer}>
             {galleryImages.map((url, i) => (
-              <Image key={i} source={{ uri: url }} style={[styles.galleryImg, i === 0 && { marginLeft: 24 }, i === galleryImages.length - 1 && { marginRight: 24 }]} />
+              <Image key={`${url}-${i}`} source={{ uri: url }} style={[styles.galleryImg, i === 0 && { marginLeft: 24 }, i === galleryImages.length - 1 && { marginRight: 24 }]} />
             ))}
           </ScrollView>
         </AnimatedSection>

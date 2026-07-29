@@ -42,7 +42,7 @@ function mapBackendToUI(e) {
       e.permite_reservas && 'Acepta reservas',
     ].filter(Boolean),
     capacities: (e.capacities || []).map((c, i) => ({
-      id: i,
+      id: `${e.uuid}-${i}`,
       type: c.type || 'Lavadora',
       kg: c.kg,
       available: c.available,

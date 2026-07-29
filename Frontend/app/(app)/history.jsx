@@ -94,7 +94,7 @@ export default function HistoryScreen() {
     try {
       setError(null);
       const response = await historyService.getMisHistorial();
-      setServices(response.data || []);
+      setServices((response.data || []).filter(Boolean));
     } catch (err) {
       console.error('Error loading history:', err);
       setError(err.message || 'Error al cargar historial');
@@ -408,7 +408,7 @@ export default function HistoryScreen() {
 
         {/* CARDS */}
         {filtered.map((service, index) => (
-          <HistoryCard key={service.id} service={service} index={index} onViewDetail={handleViewDetail} />
+          <HistoryCard key={service.uuid || service.id || index} service={service} index={index} onViewDetail={handleViewDetail} />
         ))}
 
         {/* EMPTY STATE */}
@@ -511,6 +511,7 @@ export default function HistoryScreen() {
             </View>
 
             <View style={styles.invoiceBody}>
+              {historyInvoice && (<>
               <View style={[styles.invoiceCard, { backgroundColor: colors.gray50 }]}>
                 <Text style={styles.invoiceCode}>{historyInvoice.id}</Text>
                 <Text style={styles.invoiceCompany}>{historyInvoice.companyName}</Text>
@@ -546,6 +547,7 @@ export default function HistoryScreen() {
               </View>
 
               <Text style={styles.invoiceNote}>La factura electronica estara disponible para descarga proximamente.</Text>
+              </>)}
             </View>
           </View>
         </View>
