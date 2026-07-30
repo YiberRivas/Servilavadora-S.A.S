@@ -13,11 +13,6 @@ const FILTER_OPTIONS = [
   { key: 'all', label: 'Todos' },
   { key: 'finalizado', label: 'Finalizados' },
   { key: 'cancelado', label: 'Cancelados' },
-  { key: 'reviewed', label: 'Con resena' },
-  { key: 'no_reviewed', label: 'Sin resena' },
-  { key: '30d', label: 'Ultimos 30 dias' },
-  { key: '3m', label: 'Ultimos 3 meses' },
-  { key: 'year', label: 'Este anio' },
 ];
 
 const SORT_OPTIONS = [
@@ -33,6 +28,14 @@ const STATUS_CONFIG = {
   cancelado: { color: '#ef4444', bg: '#FEF2F2', icon: 'close-circle-outline', label: 'Cancelado' },
   incidencia: { color: '#f59e0b', bg: '#FFFBEB', icon: 'alert-circle-outline', label: 'Incidencia' },
   devolucion_tardia: { color: '#8b5cf6', bg: '#F5F3FF', icon: 'clock-alert-outline', label: 'Devolucion tardia' },
+  programada: { color: '#6366f1', bg: '#EEF2FF', icon: 'calendar-clock', label: 'Programada' },
+  en_camino: { color: '#14b8a6', bg: '#F0FDFA', icon: 'truck-delivery-outline', label: 'En camino' },
+  lavadora_entregada: { color: '#10b981', bg: '#ECFDF5', icon: 'washing-machine', label: 'Lavadora entregada' },
+  en_uso: { color: '#12A594', bg: '#E4F6F3', icon: 'play-circle-outline', label: 'En uso' },
+  finalizacion_solicitada: { color: '#f97316', bg: '#FFF7ED', icon: 'clock-alert-outline', label: 'Finalizacion solicitada' },
+  recogida: { color: '#8b5cf6', bg: '#F5F3FF', icon: 'truck-check-outline', label: 'Lavadora recogida' },
+  en_inspeccion: { color: '#f59e0b', bg: '#FFFBEB', icon: 'magnify', label: 'En inspeccion' },
+  rechazada: { color: '#ef4444', bg: '#FEF2F2', icon: 'close-circle-outline', label: 'Rechazada' },
 };
 
 function AnimatedSection({ children, delay = 0 }) {
@@ -51,27 +54,6 @@ function AnimatedSection({ children, delay = 0 }) {
   );
 }
 
-function StarRating({ rating, size = 18, interactive = false, onChange }) {
-  return (
-    <View style={styles.starRow}>
-      {[1, 2, 3, 4, 5].map((star) => (
-        <TouchableOpacity
-          key={star}
-          activeOpacity={interactive ? 0.6 : 1}
-          onPress={() => interactive && onChange?.(star)}
-          style={styles.starBtn}
-        >
-          <Icon
-            source={star <= rating ? 'star' : 'star-outline'}
-            size={size}
-            color={star <= rating ? '#f59e0b' : colors.gray300}
-          />
-        </TouchableOpacity>
-      ))}
-    </View>
-  );
-}
-
 export default function HistoryScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
@@ -81,10 +63,6 @@ export default function HistoryScreen() {
   const [showSort, setShowSort] = useState(false);
   const [selectedService, setSelectedService] = useState(null);
   const [showDetail, setShowDetail] = useState(false);
-  const [showInvoice, setShowInvoice] = useState(false);
-  const [showReviewModal, setShowReviewModal] = useState(false);
-  const [reviewRating, setReviewRating] = useState(0);
-  const [reviewComment, setReviewComment] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [services, setServices] = useState([]);
@@ -151,23 +129,6 @@ export default function HistoryScreen() {
         case 'cancelado':
           result = result.filter((s) => s.status === 'cancelado');
           break;
-        case '30d': {
-          const thirtyDaysAgo = new Date();
-          thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-          result = result.filter((s) => s.fechaInicio && new Date(s.fechaInicio) >= thirtyDaysAgo);
-          break;
-        }
-        case '3m': {
-          const threeMonthsAgo = new Date();
-          threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3);
-          result = result.filter((s) => s.fechaInicio && new Date(s.fechaInicio) >= threeMonthsAgo);
-          break;
-        }
-        case 'year': {
-          const yearStart = new Date(new Date().getFullYear(), 0, 1);
-          result = result.filter((s) => s.fechaInicio && new Date(s.fechaInicio) >= yearStart);
-          break;
-        }
       }
     }
 
@@ -196,43 +157,9 @@ export default function HistoryScreen() {
     setShowDetail(true);
   }, []);
 
-  const handleViewInvoice = useCallback(() => {
-    setShowDetail(false);
-    setTimeout(() => setShowInvoice(true), 300);
-  }, []);
-
-  const handleOpenReview = useCallback(() => {
-    setShowDetail(false);
-    setTimeout(() => setShowReviewModal(true), 300);
-  }, []);
-
-  const handleSubmitReview = useCallback(() => {
-    if (reviewRating === 0) return;
-    Alert.alert('Resena enviada', 'Gracias por tu calificacion.');
-    setShowReviewModal(false);
-    setReviewRating(0);
-    setReviewComment('');
-  }, [reviewRating, reviewComment]);
-
   const handleRehire = useCallback(() => {
     Alert.alert('Proximamente', 'La funcion de volver a contratar estara disponible pronto.');
   }, []);
-
-  const historyInvoice = useMemo(() => {
-    if (!selectedService) return null;
-    const subtotal = selectedService.valorTotal || 0;
-    const iva = Math.round(subtotal * 0.19);
-    return {
-      id: selectedService.serviceCode || 'N/A',
-      companyName: selectedService.empresaNombre || '',
-      date: selectedService.fechaInicio || '',
-      subtotal,
-      iva,
-      total: subtotal + iva,
-      paymentMethod: 'Efectivo',
-      status: 'Pendiente',
-    };
-  }, [selectedService]);
 
   if (isLoading) {
     return (
@@ -490,6 +417,13 @@ export default function HistoryScreen() {
                   </View>
 
                   <View style={styles.detailActions}>
+                    <AppButton
+                      title="Ver empresa"
+                      onPress={() => { setShowDetail(false); router.push({ pathname: '/(modals)/company-detail', params: { id: selectedService.empresaUuid } }); }}
+                      variant="ghost"
+                      fullWidth
+                      icon="domain"
+                    />
                     <AppButton title="Solicitar nuevamente" onPress={handleRehire} variant="ghost" fullWidth icon="refresh" />
                   </View>
                 </View>
@@ -499,98 +433,6 @@ export default function HistoryScreen() {
         </View>
       </Modal>
 
-      {/* INVOICE MODAL */}
-      <Modal visible={showInvoice} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.white }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Factura</Text>
-              <TouchableOpacity onPress={() => setShowInvoice(false)} style={styles.modalClose}>
-                <Icon source="close" size={22} color={colors.gray600} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.invoiceBody}>
-              {historyInvoice && (<>
-              <View style={[styles.invoiceCard, { backgroundColor: colors.gray50 }]}>
-                <Text style={styles.invoiceCode}>{historyInvoice.id}</Text>
-                <Text style={styles.invoiceCompany}>{historyInvoice.companyName}</Text>
-                <Text style={styles.invoiceDate}>{historyInvoice.date}</Text>
-
-                <View style={styles.invoiceDivider} />
-
-                <View style={styles.invoiceRow}>
-                  <Text style={styles.invoiceLabel}>Subtotal</Text>
-                  <Text style={styles.invoiceValue}>{formatCurrency(historyInvoice.subtotal)}</Text>
-                </View>
-                <View style={styles.invoiceRow}>
-                  <Text style={styles.invoiceLabel}>IVA</Text>
-                  <Text style={styles.invoiceValue}>{formatCurrency(historyInvoice.iva)}</Text>
-                </View>
-                <View style={[styles.invoiceRow, { borderTopWidth: 1, borderTopColor: colors.gray100, paddingTop: 10, marginTop: 6 }]}>
-                  <Text style={[styles.invoiceLabel, { fontFamily: 'Inter_600SemiBold', color: colors.blue900 }]}>Total</Text>
-                  <Text style={[styles.invoiceValue, { fontFamily: 'Poppins_700Bold', fontSize: 18, color: colors.accent }]}>{formatCurrency(historyInvoice.total)}</Text>
-                </View>
-
-                <View style={styles.invoiceDivider} />
-
-                <View style={styles.invoiceRow}>
-                  <Text style={styles.invoiceLabel}>Metodo de pago</Text>
-                  <Text style={styles.invoiceValue}>{historyInvoice.paymentMethod}</Text>
-                </View>
-                <View style={styles.invoiceRow}>
-                  <Text style={styles.invoiceLabel}>Estado</Text>
-                  <View style={[styles.invoiceStatusBadge, { backgroundColor: '#ECFDF5' }]}>
-                    <Text style={[styles.invoiceStatusText, { color: '#10b981' }]}>{historyInvoice.status}</Text>
-                  </View>
-                </View>
-              </View>
-
-              <Text style={styles.invoiceNote}>La factura electronica estara disponible para descarga proximamente.</Text>
-              </>)}
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* REVIEW MODAL */}
-      <Modal visible={showReviewModal} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: colors.white }]}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Calificar servicio</Text>
-              <TouchableOpacity onPress={() => setShowReviewModal(false)} style={styles.modalClose}>
-                <Icon source="close" size={22} color={colors.gray600} />
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.reviewBody}>
-              <Text style={styles.reviewPrompt}>Como calificarias este servicio?</Text>
-              <StarRating rating={reviewRating} size={32} interactive onChange={setReviewRating} />
-
-              <TextInput
-                style={[styles.reviewInput, { color: colors.gray900, borderColor: colors.gray100 }]}
-                placeholder="Comparte tu experiencia (opcional)"
-                placeholderTextColor={colors.gray400}
-                value={reviewComment}
-                onChangeText={setReviewComment}
-                multiline
-                numberOfLines={4}
-                maxLength={500}
-              />
-              <Text style={styles.reviewCount}>{reviewComment.length}/500</Text>
-
-              <AppButton
-                title="Enviar resena"
-                onPress={handleSubmitReview}
-                variant="primary"
-                fullWidth
-                disabled={reviewRating === 0}
-              />
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
@@ -735,8 +577,6 @@ const styles = StyleSheet.create({
 
   cardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   cardPrice: { fontFamily: 'Poppins_700Bold', fontSize: 17, color: colors.accent, letterSpacing: -0.3 },
-  cardReviewBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#FFFBEB', paddingHorizontal: 8, paddingVertical: 3, borderRadius: radii.full },
-  cardReviewText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: '#f59e0b' },
 
   emptyState: { alignItems: 'center', paddingVertical: 48, paddingHorizontal: 32, gap: 12 },
   emptyIconWrap: { width: 88, height: 88, borderRadius: 44, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
@@ -768,29 +608,5 @@ const styles = StyleSheet.create({
   detailStatusBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 4, borderRadius: radii.full },
   detailStatusText: { fontFamily: 'Inter_600SemiBold', fontSize: 11 },
 
-  detailReview: { padding: 14, borderRadius: radii.md, marginTop: 12, marginBottom: 8 },
-  detailReviewComment: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray600, marginTop: 8, lineHeight: 18 },
-  detailReviewDate: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray400, marginTop: 6 },
-
   detailActions: { gap: 10, marginTop: 20 },
-
-  invoiceBody: { padding: 20 },
-  invoiceCard: { padding: 20, borderRadius: radii.md, marginBottom: 12 },
-  invoiceCode: { fontFamily: 'Poppins_600SemiBold', fontSize: 16, color: colors.blue900, marginBottom: 4 },
-  invoiceCompany: { fontFamily: 'Inter_400Regular', fontSize: 14, color: colors.gray600 },
-  invoiceDate: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray400, marginTop: 2 },
-  invoiceDivider: { height: 1, backgroundColor: colors.gray100, marginVertical: 14 },
-  invoiceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  invoiceLabel: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray600 },
-  invoiceValue: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.blue900 },
-  invoiceStatusBadge: { paddingHorizontal: 10, paddingVertical: 3, borderRadius: radii.full },
-  invoiceStatusText: { fontFamily: 'Inter_600SemiBold', fontSize: 11 },
-  invoiceNote: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray400, textAlign: 'center', lineHeight: 18 },
-
-  reviewBody: { padding: 20, alignItems: 'center' },
-  reviewPrompt: { fontFamily: 'Poppins_600SemiBold', fontSize: 16, color: colors.blue900, marginBottom: 16 },
-  starRow: { flexDirection: 'row', gap: 8, marginBottom: 20 },
-  starBtn: { padding: 4 },
-  reviewInput: { width: '100%', borderWidth: 1, borderRadius: radii.md, padding: 14, fontFamily: 'Inter_400Regular', fontSize: 14, minHeight: 100, textAlignVertical: 'top', marginBottom: 8 },
-  reviewCount: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray400, alignSelf: 'flex-end', marginBottom: 16 },
 });

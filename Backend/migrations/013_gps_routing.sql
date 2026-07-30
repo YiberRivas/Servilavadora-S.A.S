@@ -1,5 +1,3 @@
--- Migracion 013: Sistema de rutas GPS en tiempo real
--- Fecha: 2026-07-27
 
 CREATE TABLE IF NOT EXISTS ruta_gps (
     id_ruta_gps BIGINT AUTO_INCREMENT PRIMARY KEY,

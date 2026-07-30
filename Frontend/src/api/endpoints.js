@@ -95,6 +95,7 @@ const endpoints = {
     detail: (uuid) => `${API_PREFIX}/rutas/${uuid}`,
     historial: (uuid) => `${API_PREFIX}/rutas/${uuid}/historial`,
     iniciar: (uuid) => `${API_PREFIX}/rutas/${uuid}/iniciar`,
+    entregar: (uuid) => `${API_PREFIX}/rutas/${uuid}/entregar`,
     finalizar: (uuid) => `${API_PREFIX}/rutas/${uuid}/finalizar`,
     ubicacion: (uuid) => `${API_PREFIX}/rutas/${uuid}/ubicacion`,
   },

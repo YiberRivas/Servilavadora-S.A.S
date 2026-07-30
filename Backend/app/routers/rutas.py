@@ -1,12 +1,14 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.base import (
     Usuario, Ruta, RutaGPS, UbicacionRuta, Alquiler,
-    ClienteEmpresa, Repartidor,
+    ClienteEmpresa, Repartidor, EstadoAlquiler,
+    Lavadora, EstadoLavadora, CronometroAlquiler,
+    TarifaEmpresa,
 )
 from app.schemas.common import ApiResponse, PaginatedResponse
 from app.schemas.modulos import (
@@ -141,7 +143,7 @@ async def get_my_route(
                 ClienteEmpresa.estado == 1,
             )
         )
-        cliente = ce_result.scalar_one_or_none()
+        cliente = ce_result.scalars().first()
         if not cliente:
             return ApiResponse(success=False, message="Cliente no encontrado")
 
@@ -167,7 +169,7 @@ async def get_my_route(
             select(Repartidor).where(
                 Repartidor.id_usuario == current_user.id_usuario,
                 Repartidor.estado == 1,
-            )
+            ).limit(1)
         )
         repartidor = rep_result.scalar_one_or_none()
         if not repartidor:
@@ -194,9 +196,24 @@ async def get_my_route(
     )
     rep_user = user_result.scalar_one_or_none()
 
-    return ApiResponse(success=True, data={
+    alq_result = await db.execute(
+        select(Alquiler).where(Alquiler.id_alquiler == ruta_gps.id_alquiler)
+    )
+    alquiler = alq_result.scalar_one_or_none()
+    alquiler_estado = ""
+    alquiler_uuid = ""
+    if alquiler:
+        alquiler_uuid = alquiler.uuid
+        alq_estado_result = await db.execute(
+            select(EstadoAlquiler).where(EstadoAlquiler.id_estado_alquiler == alquiler.id_estado_alquiler)
+        )
+        alq_estado = alq_estado_result.scalar_one_or_none()
+        alquiler_estado = alq_estado.codigo if alq_estado else ""
+
+    return ApiResponse(success=True, message="OK", data={
         "uuid": ruta_gps.uuid,
-        "alquiler_uuid": None,
+        "alquiler_uuid": alquiler_uuid,
+        "alquiler_estado": alquiler_estado,
         "repartidor_nombre": f"{rep_user.persona.nombres} {rep_user.persona.apellidos}" if rep_user and rep_user.persona else None,
         "latitud_actual": float(ruta_gps.latitud_actual) if ruta_gps.latitud_actual else None,
         "longitud_actual": float(ruta_gps.longitud_actual) if ruta_gps.longitud_actual else None,
@@ -244,7 +261,7 @@ async def get_route_detail(
 
     elif current_user.rol.codigo == "REPARTIDOR":
         rep_result = await db.execute(
-            select(Repartidor).where(Repartidor.id_usuario == current_user.id_usuario)
+            select(Repartidor).where(Repartidor.id_usuario == current_user.id_usuario).limit(1)
         )
         rep = rep_result.scalar_one_or_none()
         if not rep or rep.id_repartidor != ruta_gps.id_repartidor:
@@ -261,8 +278,24 @@ async def get_route_detail(
         )
         rep_user = user_result.scalar_one_or_none()
 
-    return ApiResponse(success=True, data={
+    alq_result = await db.execute(
+        select(Alquiler).where(Alquiler.id_alquiler == ruta_gps.id_alquiler)
+    )
+    alquiler = alq_result.scalar_one_or_none()
+    alquiler_estado = ""
+    alquiler_uuid = ""
+    if alquiler:
+        alquiler_uuid = alquiler.uuid
+        alq_estado_result = await db.execute(
+            select(EstadoAlquiler).where(EstadoAlquiler.id_estado_alquiler == alquiler.id_estado_alquiler)
+        )
+        alq_estado = alq_estado_result.scalar_one_or_none()
+        alquiler_estado = alq_estado.codigo if alq_estado else ""
+
+    return ApiResponse(success=True, message="OK", data={
         "uuid": ruta_gps.uuid,
+        "alquiler_uuid": alquiler_uuid,
+        "alquiler_estado": alquiler_estado,
         "repartidor_nombre": f"{rep_user.persona.nombres} {rep_user.persona.apellidos}" if rep_user and rep_user.persona else None,
         "latitud_actual": float(ruta_gps.latitud_actual) if ruta_gps.latitud_actual else None,
         "longitud_actual": float(ruta_gps.longitud_actual) if ruta_gps.longitud_actual else None,
@@ -333,7 +366,7 @@ async def get_route_history(
         for u in ubicaciones
     ]
 
-    return ApiResponse(success=True, data={
+    return ApiResponse(success=True, message="OK", data={
         "uuid": ruta_gps.uuid,
         "estado": ruta_gps.estado,
         "fecha_inicio": ruta_gps.fecha_inicio.isoformat() if ruta_gps.fecha_inicio else None,
@@ -356,7 +389,7 @@ async def start_route(
         select(Repartidor).where(
             Repartidor.id_usuario == current_user.id_usuario,
             Repartidor.estado == 1,
-        )
+        ).limit(1)
     )
     repartidor = rep_result.scalar_one_or_none()
     if not repartidor:
@@ -385,7 +418,16 @@ async def start_route(
         select(Alquiler).where(Alquiler.id_alquiler == ruta_gps.id_alquiler)
     )
     alquiler = alq_result.scalar_one_or_none()
+
     if alquiler:
+        estado_camino = (await db.execute(
+            select(EstadoAlquiler).where(EstadoAlquiler.codigo == "CAMINO")
+        )).scalar_one_or_none()
+        if estado_camino:
+            alquiler.id_estado_alquiler = estado_camino.id_estado_alquiler
+            alquiler.fecha_inicio = now
+            await db.flush()
+
         ce_result = await db.execute(
             select(ClienteEmpresa).where(ClienteEmpresa.id_cliente_empresa == alquiler.id_cliente_empresa)
         )
@@ -404,6 +446,71 @@ async def start_route(
     return ApiResponse(success=True, message="Ruta iniciada", data={"uuid": ruta_gps.uuid})
 
 
+@router.post("/{uuid}/entregar", response_model=ApiResponse)
+async def entregar_lavadora(
+    uuid: str,
+    current_user: Usuario = Depends(require_role("REPARTIDOR")),
+    db: AsyncSession = Depends(get_db),
+):
+    rep_result = await db.execute(
+        select(Repartidor).where(
+            Repartidor.id_usuario == current_user.id_usuario,
+            Repartidor.estado == 1,
+        ).limit(1)
+    )
+    repartidor = rep_result.scalar_one_or_none()
+    if not repartidor:
+        return ApiResponse(success=False, message="Repartidor no encontrado")
+
+    result = await db.execute(
+        select(RutaGPS).where(RutaGPS.uuid == uuid)
+    )
+    ruta_gps = result.scalar_one_or_none()
+    if not ruta_gps:
+        return ApiResponse(success=False, message="Ruta no encontrada")
+
+    if ruta_gps.id_repartidor != repartidor.id_repartidor:
+        return ApiResponse(success=False, message="No tienes acceso a esta ruta")
+
+    if ruta_gps.estado != "EN_CURSO":
+        return ApiResponse(success=False, message="La ruta no esta en curso")
+
+    alq_result = await db.execute(
+        select(Alquiler).where(Alquiler.id_alquiler == ruta_gps.id_alquiler)
+    )
+    alquiler = alq_result.scalar_one_or_none()
+    if not alquiler:
+        return ApiResponse(success=False, message="Alquiler no encontrado")
+
+    estado_activo = (await db.execute(
+        select(EstadoAlquiler).where(EstadoAlquiler.codigo == "ACTIVO")
+    )).scalar_one_or_none()
+    if not estado_activo:
+        return ApiResponse(success=False, message="Estado ACTIVO no encontrado en el sistema")
+
+    now = datetime.now(timezone.utc)
+    alquiler.id_estado_alquiler = estado_activo.id_estado_alquiler
+    alquiler.updated_at = now
+    await db.flush()
+
+    ce_result = await db.execute(
+        select(ClienteEmpresa).where(ClienteEmpresa.id_cliente_empresa == alquiler.id_cliente_empresa)
+    )
+    cliente = ce_result.scalar_one_or_none()
+    if cliente:
+        await create_notification_and_push(
+            db, cliente.id_usuario,
+            titulo="Lavadora entregada",
+            mensaje="La lavadora fue entregada correctamente en tu ubicacion.",
+            tipo="SERVICIO",
+            icono="washing-machine",
+            color="#10B981",
+            data={"ruta_uuid": ruta_gps.uuid, "alquiler_uuid": alquiler.uuid},
+        )
+
+    return ApiResponse(success=True, message="Lavadora entregada", data={"uuid": ruta_gps.uuid})
+
+
 @router.post("/{uuid}/finalizar", response_model=ApiResponse)
 async def finish_route(
     uuid: str,
@@ -414,7 +521,7 @@ async def finish_route(
         select(Repartidor).where(
             Repartidor.id_usuario == current_user.id_usuario,
             Repartidor.estado == 1,
-        )
+        ).limit(1)
     )
     repartidor = rep_result.scalar_one_or_none()
     if not repartidor:
@@ -475,7 +582,7 @@ async def update_location(
         select(Repartidor).where(
             Repartidor.id_usuario == current_user.id_usuario,
             Repartidor.estado == 1,
-        )
+        ).limit(1)
     )
     repartidor = rep_result.scalar_one_or_none()
     if not repartidor:
@@ -544,4 +651,132 @@ async def update_location(
     return ApiResponse(success=True, message="Ubicacion actualizada", data={
         "distancia_restante_metros": ruta_gps.distancia_restante_metros,
         "tiempo_estimado_segundos": ruta_gps.tiempo_estimado_segundos,
+    })
+
+
+@router.post("/{uuid}/recoger-lavadora", response_model=ApiResponse)
+async def recoger_lavadora(
+    uuid: str,
+    current_user: Usuario = Depends(require_role("REPARTIDOR")),
+    db: AsyncSession = Depends(get_db),
+):
+    rep_result = await db.execute(
+        select(Repartidor).where(
+            Repartidor.id_usuario == current_user.id_usuario,
+            Repartidor.estado == 1,
+        ).limit(1)
+    )
+    repartidor = rep_result.scalar_one_or_none()
+    if not repartidor:
+        return ApiResponse(success=False, message="Repartidor no encontrado")
+
+    result = await db.execute(
+        select(RutaGPS).where(RutaGPS.uuid == uuid)
+    )
+    ruta_gps = result.scalar_one_or_none()
+    if not ruta_gps:
+        return ApiResponse(success=False, message="Ruta no encontrada")
+
+    if ruta_gps.id_repartidor != repartidor.id_repartidor:
+        return ApiResponse(success=False, message="No tienes acceso a esta ruta")
+
+    if ruta_gps.estado != "EN_CURSO":
+        return ApiResponse(success=False, message="La ruta no esta en curso")
+
+    alq_result = await db.execute(
+        select(Alquiler).where(Alquiler.id_alquiler == ruta_gps.id_alquiler)
+    )
+    alquiler = alq_result.scalar_one_or_none()
+    if not alquiler:
+        return ApiResponse(success=False, message="Alquiler no encontrado")
+
+    alq_estado = (await db.execute(
+        select(EstadoAlquiler).where(EstadoAlquiler.id_estado_alquiler == alquiler.id_estado_alquiler)
+    )).scalar_one_or_none()
+    if not alq_estado or alq_estado.codigo != "FINALIZACION":
+        return ApiResponse(
+            success=False,
+            message=f"Estado del alquiler invalido: {alq_estado.codigo if alq_estado else 'DESCONOCIDO'}. Se requiere FINALIZACION.",
+        )
+
+    estado_finalizado = (await db.execute(
+        select(EstadoAlquiler).where(EstadoAlquiler.codigo == "FINALIZADO")
+    )).scalar_one_or_none()
+    if not estado_finalizado:
+        return ApiResponse(success=False, message="Estado FINALIZADO no encontrado en el sistema")
+
+    now = datetime.now(timezone.utc)
+
+    alquiler.id_estado_alquiler = estado_finalizado.id_estado_alquiler
+    alquiler.fecha_fin = now
+    alquiler.updated_at = now
+
+    ruta_gps.estado = "FINALIZADA"
+    ruta_gps.fecha_fin = now
+    ruta_gps.ultima_actualizacion = now
+    ruta_gps.distancia_restante_metros = 0
+    ruta_gps.tiempo_estimado_segundos = 0
+
+    lav_result = await db.execute(
+        select(Lavadora).where(Lavadora.id_lavadora == alquiler.id_lavadora)
+    )
+    lavadora = lav_result.scalar_one_or_none()
+    if lavadora:
+        lavadora.disponible = 1
+        disp_estado = (await db.execute(
+            select(EstadoLavadora).where(EstadoLavadora.codigo == "DISPONIBLE")
+        )).scalar_one_or_none()
+        if disp_estado:
+            lavadora.id_estado_lavadora = disp_estado.id_estado_lavadora
+
+    repartidor.disponible = 1
+
+    cron_result = await db.execute(
+        select(CronometroAlquiler).where(CronometroAlquiler.id_alquiler == alquiler.id_alquiler)
+    )
+    cronometro = cron_result.scalar_one_or_none()
+    if cronometro and cronometro.activo:
+        cronometro.fecha_fin = now
+        cronometro.activo = 0
+        if cronometro.fecha_inicio:
+            diff = now - cronometro.fecha_inicio
+            cronometro.minutos_transcurridos = int(diff.total_seconds() / 60)
+            cronometro.minutos_facturables = cronometro.minutos_transcurridos
+
+        if lavadora and lavadora.id_capacidad_lavadora:
+            tarifa = (await db.execute(
+                select(TarifaEmpresa).where(
+                    TarifaEmpresa.id_empresa == ruta_gps.id_empresa,
+                    TarifaEmpresa.id_capacidad_lavadora == lavadora.id_capacidad_lavadora,
+                    TarifaEmpresa.activa == 1,
+                )
+            )).scalar_one_or_none()
+            if tarifa:
+                cronometro.valor_acumulado = cronometro.minutos_facturables * float(tarifa.valor_minuto)
+                alquiler.valor_total = cronometro.valor_acumulado
+                alquiler.minutos_facturados = cronometro.minutos_facturables
+
+    ce_result = await db.execute(
+        select(ClienteEmpresa).where(ClienteEmpresa.id_cliente_empresa == alquiler.id_cliente_empresa)
+    )
+    cliente = ce_result.scalar_one_or_none()
+    if cliente:
+        await create_notification_and_push(
+            db, cliente.id_usuario,
+            titulo="Servicio finalizado",
+            mensaje="La lavadora ha sido recogida correctamente. El servicio ha concluido.",
+            tipo="SERVICIO",
+            icono="check-circle",
+            color="#10B981",
+            data={"ruta_uuid": ruta_gps.uuid, "alquiler_uuid": alquiler.uuid},
+        )
+
+    await db.commit()
+
+    return ApiResponse(success=True, message="Lavadora recogida y servicio finalizado", data={
+        "alquiler_uuid": alquiler.uuid,
+        "ruta_uuid": ruta_gps.uuid,
+        "estado_alquiler": estado_finalizado.nombre,
+        "estado_ruta": ruta_gps.estado,
+        "mensaje": "La lavadora fue recogida, el servicio ha finalizado y los recursos fueron liberados.",
     })

@@ -33,3 +33,10 @@ python run.py
 python -m uvicorn app.main:app --host 127.0.0 --port 8000
 
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+BACKEND:
+para cambiar de ip en el archivo env.js de la carpeta config,
+cambiar la ip de la variable API_BASE_URL y WS_BASE_URL, luego reiniciar el servidor de backend y el servidor de frontend.
+
+FRONTEND:
+para cambiar de ip en el archivo app.json, cambiar la ip de la variable apiBaseUrl y wsBaseUrl, luego reiniciar el servidor de frontend.

@@ -37,16 +37,23 @@ export default function DriverProfileScreen() {
   const handleLogout = useCallback(async () => {
     Alert.alert('Cerrar sesion', 'Estas seguro que deseas cerrar sesion?', [
       { text: 'Cancelar', style: 'cancel' },
-      { text: 'Cerrar sesion', style: 'destructive', onPress: signOut },
+      {
+        text: 'Cerrar sesion',
+        style: 'destructive',
+        onPress: async () => {
+          await signOut();
+          router.replace('/(auth)/login');
+        },
+      },
     ]);
-  }, [signOut]);
+  }, [signOut, router]);
 
   const menuItems = [
-    { icon: 'account-edit-outline', label: 'Editar perfil', onPress: () => {} },
-    { icon: 'lock-outline', label: 'Cambiar contrasena', onPress: () => {} },
+    { icon: 'account-edit-outline', label: 'Editar perfil', onPress: () => Alert.alert('Proximamente', 'La edicion de perfil estara disponible pronto.') },
+    { icon: 'lock-outline', label: 'Cambiar contrasena', onPress: () => Alert.alert('Proximamente', 'Funcionalidad proximamente disponible.') },
     { icon: 'credit-card-outline', label: 'Metodos de pago', onPress: () => router.push('/(modals)/payment-methods') },
-    { icon: 'bell-outline', label: 'Configurar notificaciones', onPress: () => {} },
-    { icon: 'help-circle-outline', label: 'Centro de ayuda', onPress: () => {} },
+    { icon: 'bell-outline', label: 'Configurar notificaciones', onPress: () => Alert.alert('Proximamente', 'Configuracion de notificaciones proximamente disponible.') },
+    { icon: 'help-circle-outline', label: 'Centro de ayuda', onPress: () => Alert.alert('Centro de ayuda', 'Accede a guias y tutoriales.') },
   ];
 
   if (loading) {

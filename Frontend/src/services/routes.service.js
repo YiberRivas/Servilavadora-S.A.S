@@ -29,6 +29,11 @@ export const routesService = {
     return data;
   },
 
+  async deliverRoute(uuid) {
+    const { data } = await apiClient.post(endpoints.rutas.entregar(uuid));
+    return data;
+  },
+
   async updateLocation(uuid, locationData) {
     const { data } = await apiClient.put(endpoints.rutas.ubicacion(uuid), locationData);
     return data;

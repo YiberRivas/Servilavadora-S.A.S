@@ -1,7 +1,6 @@
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.base import (
@@ -24,7 +23,7 @@ async def get_repartidor_from_user(db, user_id: int):
         select(Repartidor).where(
             Repartidor.id_usuario == user_id,
             Repartidor.estado == 1,
-        )
+        ).limit(1)
     )
     return result.scalar_one_or_none()
 
@@ -41,44 +40,41 @@ async def get_dashboard(
     if not rep:
         return ApiResponse(success=False, message="Repartidor no encontrado")
 
+    pendiente_ids = [s[0] for s in (await db.execute(
+        select(EstadoAlquiler.id_estado_alquiler).where(
+            EstadoAlquiler.codigo.in_(["PENDIENTE", "FINALIZACION"])
+        )
+    )).fetchall()]
     pendientes = (await db.execute(
         select(func.count()).select_from(Alquiler).where(
             Alquiler.id_repartidor == rep.id_repartidor,
-            Alquiler.id_estado_alquiler.in_([
-                s for s, in await db.execute(
-                    select(EstadoAlquiler.id_estado_alquiler).where(
-                        EstadoAlquiler.codigo.in_(["ASIGNADO", "PENDIENTE"])
-                    )
-                )
-            ]),
+            Alquiler.id_estado_alquiler.in_(pendiente_ids) if pendiente_ids else Alquiler.id_alquiler == 0,
             Alquiler.estado == 1,
         )
     )).scalar() or 0
 
+    activo_ids = [s[0] for s in (await db.execute(
+        select(EstadoAlquiler.id_estado_alquiler).where(
+            EstadoAlquiler.codigo.in_(["CAMINO", "ACTIVO"])
+        )
+    )).fetchall()]
     activos = (await db.execute(
         select(func.count()).select_from(Alquiler).where(
             Alquiler.id_repartidor == rep.id_repartidor,
-            Alquiler.id_estado_alquiler.in_([
-                s for s, in await db.execute(
-                    select(EstadoAlquiler.id_estado_alquiler).where(
-                        EstadoAlquiler.codigo.in_(["EN_CURSO", "EN_CAMINO", "ENTREGADO"])
-                    )
-                )
-            ]),
+            Alquiler.id_estado_alquiler.in_(activo_ids) if activo_ids else Alquiler.id_alquiler == 0,
             Alquiler.estado == 1,
         )
     )).scalar() or 0
 
+    finalizado_ids = [s[0] for s in (await db.execute(
+        select(EstadoAlquiler.id_estado_alquiler).where(
+            EstadoAlquiler.codigo == "FINALIZADO"
+        )
+    )).fetchall()]
     finalizados = (await db.execute(
         select(func.count()).select_from(Alquiler).where(
             Alquiler.id_repartidor == rep.id_repartidor,
-            Alquiler.id_estado_alquiler.in_([
-                s for s, in await db.execute(
-                    select(EstadoAlquiler.id_estado_alquiler).where(
-                        EstadoAlquiler.codigo == "FINALIZADO"
-                    )
-                )
-            ]),
+            Alquiler.id_estado_alquiler.in_(finalizado_ids) if finalizado_ids else Alquiler.id_alquiler == 0,
         )
     )).scalar() or 0
 
@@ -96,7 +92,7 @@ async def get_dashboard(
             func.coalesce(
                 func.sum(
                     func.TIMESTAMPDIFF(
-                        func.SECOND,
+                        text("SECOND"),
                         RutaGPS.fecha_inicio,
                         RutaGPS.fecha_fin
                     )
@@ -112,7 +108,7 @@ async def get_dashboard(
     )
     tiempo_trabajado = tiempo_rows.scalar() or 0
 
-    return ApiResponse(success=True, data={
+    return ApiResponse(success=True, message="OK", data={
         "entregasPendientes": pendientes,
         "entregasActivas": activos,
         "entregasFinalizadas": finalizados,
@@ -197,8 +193,14 @@ async def get_asignaciones(
         )
         est = estado_result.scalar_one_or_none()
 
+        ruta_result = await db.execute(
+            select(RutaGPS.uuid).where(RutaGPS.id_alquiler == a.id_alquiler).limit(1)
+        )
+        ruta_uuid = ruta_result.scalar_one_or_none()
+
         data.append({
             "uuid": a.uuid,
+            "rutaUuid": str(ruta_uuid) if ruta_uuid else None,
             "empresa": empresa_nombre,
             "cliente": cliente_nombre,
             "direccion": direccion,
@@ -209,7 +211,7 @@ async def get_asignaciones(
             "valorTotal": float(a.valor_total) if a.valor_total else 0,
         })
 
-    return ApiResponse(success=True, data={
+    return ApiResponse(success=True, message="OK", data={
         "items": data,
         "total": total,
         "page": page,
@@ -232,17 +234,16 @@ async def get_historial(
     if not rep:
         return ApiResponse(success=False, message="Repartidor no encontrado")
 
+    finalizado_ids = [s[0] for s in (await db.execute(
+        select(EstadoAlquiler.id_estado_alquiler).where(
+            EstadoAlquiler.codigo == "FINALIZADO"
+        )
+    )).fetchall()]
     query = (
         select(Alquiler)
         .where(
             Alquiler.id_repartidor == rep.id_repartidor,
-            Alquiler.id_estado_alquiler.in_([
-                s for s, in await db.execute(
-                    select(EstadoAlquiler.id_estado_alquiler).where(
-                        EstadoAlquiler.codigo == "FINALIZADO"
-                    )
-                )
-            ]),
+            Alquiler.id_estado_alquiler.in_(finalizado_ids) if finalizado_ids else Alquiler.id_alquiler == 0,
         )
     )
 
@@ -308,6 +309,7 @@ async def get_historial(
 
         data.append({
             "uuid": a.uuid,
+            "rutaUuid": str(ruta.uuid) if ruta else None,
             "empresa": empresa_nombre,
             "cliente": cliente_nombre,
             "direccion": direccion,
@@ -319,7 +321,7 @@ async def get_historial(
             "estado": "FINALIZADO",
         })
 
-    return ApiResponse(success=True, data={
+    return ApiResponse(success=True, message="OK", data={
         "items": data,
         "total": total,
         "page": page,

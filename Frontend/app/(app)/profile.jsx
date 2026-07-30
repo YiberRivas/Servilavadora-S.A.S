@@ -6,6 +6,7 @@ import { useAuth } from '../../src/context/AuthContext';
 import { profileService } from '../../src/services/profile.service';
 import { formatCurrency } from '../../src/utils/formatters';
 import { colors, radii, shadows } from '../../src/theme';
+import { FAQ_ITEMS } from '../../src/constants';
 import AppButton from '../../src/components/ui/AppButton';
 
 function SectionHeader({ title }) {
@@ -68,13 +69,6 @@ export default function ProfileScreen() {
   const userName = profile?.nombre_completo || user?.nombre_completo || '';
   const firstLetter = userName.charAt(0).toUpperCase();
 
-  const faqItems = [
-    { id: 1, question: 'Como alquilo una lavadora?', answer: 'Busca una empresa cercana, selecciona la capacidad y horario, y confirma tu reserva.' },
-    { id: 2, question: 'Cuanto cuesta el alquiler?', answer: 'El precio varia segun la capacidad, desde $2.000/hora hasta $8.000/hora.' },
-    { id: 3, question: 'Puedo cancelar una reserva?', answer: 'Si, puedes cancelar hasta 2 horas antes del servicio sin penalizacion.' },
-    { id: 4, question: 'Que pasa si la lavadora se dania?', answer: 'Reporta el inconveniente y la empresa enviara un tecnico o reemplazara la lavadora.' },
-  ];
-
   const handleLogout = useCallback(async () => {
     Alert.alert('Cerrar sesion', 'Estas seguro que deseas cerrar sesion?', [
       { text: 'Cancelar', style: 'cancel' },
@@ -90,7 +84,7 @@ export default function ProfileScreen() {
   }, [signOut, router]);
 
   const handleChangePassword = useCallback(() => {
-    Alert.alert('Cambiar contrasena', 'Se enviara un enlace de cambio de contrasena a tu correo electronico.');
+    Alert.alert('Cambiar contrasena', 'Funcionalidad proximamente disponible.');
   }, []);
 
   const handleToggleFaq = useCallback((id) => {
@@ -471,14 +465,14 @@ export default function ProfileScreen() {
       <SectionHeader title="Preguntas frecuentes" />
       <AnimatedSection delay={650}>
         <View style={[styles.listCard, { backgroundColor: colors.white }]}>
-          {faqItems.map((faq, i) => {
+          {FAQ_ITEMS.map((faq, i) => {
             const isExpanded = expandedFaq === faq.id;
             return (
               <TouchableOpacity
                 key={faq.id}
                 activeOpacity={0.7}
                 onPress={() => handleToggleFaq(faq.id)}
-                style={[styles.faqItem, i < faqItems.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.gray50 }]}
+                style={[styles.faqItem, i < FAQ_ITEMS.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.gray50 }]}
               >
                 <View style={styles.faqHeader}>
                   <Text style={styles.faqQuestion}>{faq.question}</Text>
@@ -554,10 +548,6 @@ const styles = StyleSheet.create({
   addrText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray600 },
   addrDetails: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray400, marginTop: 2 },
   addrExtra: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray400, marginTop: 2 },
-  addrActions: { flexDirection: 'row', gap: 8, marginTop: 10, justifyContent: 'flex-end' },
-  addrActionBtn: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  addAddressBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 24, marginTop: 10, paddingVertical: 14, borderRadius: radii.md },
-  addAddressText: { fontFamily: 'Inter_600SemiBold', fontSize: 14 },
 
   /* PAYMENT METHODS */
   pmItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16 },

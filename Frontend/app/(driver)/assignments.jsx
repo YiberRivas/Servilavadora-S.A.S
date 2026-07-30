@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, StyleSheet, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, Animated } from 'react-native';
+import { View, StyleSheet, FlatList, RefreshControl, TouchableOpacity, ActivityIndicator, Animated, Alert } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { repartidorService } from '../../src/services/repartidor.service';
@@ -109,11 +109,7 @@ export default function AssignmentsScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
-          <Icon source="arrow-left" size={24} color={colors.blue900} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Mis Asignaciones</Text>
-        <View style={{ width: 24 }} />
+        <Text style={styles.headerTitle}>Mis Entregas</Text>
       </View>
 
       <View style={styles.filterRow}>
@@ -135,7 +131,13 @@ export default function AssignmentsScreen() {
         renderItem={({ item }) => (
           <AssignmentCard
             item={item}
-            onPress={() => router.push(`/(modals)/driver-navigation?uuid=${item.uuid}`)}
+            onPress={() => {
+              if (item.rutaUuid) {
+                router.push(`/(modals)/driver-navigation?routeUuid=${item.rutaUuid}`);
+              } else {
+                Alert.alert('Sin ruta GPS', 'Esta asignacion aun no tiene una ruta GPS asociada.');
+              }
+            }}
           />
         )}
         contentContainerStyle={styles.listContent}
@@ -154,7 +156,7 @@ export default function AssignmentsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.gray50 || '#F9FAFB' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 52, paddingBottom: 16, backgroundColor: colors.white },
+  header: { paddingHorizontal: 20, paddingTop: 52, paddingBottom: 16, backgroundColor: colors.white },
   headerTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 17, color: colors.blue900 },
   filterRow: { flexDirection: 'row', paddingHorizontal: 20, paddingVertical: 12, gap: 8 },
   filterBtn: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: radii.full, backgroundColor: colors.white, borderWidth: 1, borderColor: colors.gray200 || '#E5E7EB' },

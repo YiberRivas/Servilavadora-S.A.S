@@ -31,15 +31,6 @@ const SORT_OPTIONS = [
   { key: 'date', label: 'Fecha' },
 ];
 
-const TIMELINE_STEPS = [
-  { key: 'solicitud', label: 'Solicitud' },
-  { key: 'aceptada', label: 'Aceptada' },
-  { key: 'programada', label: 'Programada' },
-  { key: 'en_camino', label: 'En Camino' },
-  { key: 'entregada', label: 'Entregada' },
-  { key: 'en_uso', label: 'En Uso' },
-];
-
 function AnimatedSection({ children, delay = 0 }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(20)).current;

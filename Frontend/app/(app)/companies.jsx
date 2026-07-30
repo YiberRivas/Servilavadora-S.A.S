@@ -33,7 +33,7 @@ function mapBackendToUI(e) {
     reviewCount: 0,
     distance: 0,
     avgTime: 45,
-    minPrice: e.tarifa_min || 3500,
+    minPrice: e.tarifa_min || 0,
     isOpen: true,
     verified: e.verified || false,
     servicesCount: e.total_lavadoras || 0,

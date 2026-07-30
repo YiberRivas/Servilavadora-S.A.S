@@ -33,7 +33,7 @@ function mapBackendToDetail(e) {
     reviewCount: 0,
     distance: 0,
     avgTime: 45,
-    minPrice: e.tarifa_min || 3500,
+    minPrice: e.tarifa_min || 0,
     isOpen: true,
     verified: e.verified || false,
     tags: [
@@ -59,7 +59,7 @@ function mapBackendToDetail(e) {
   };
 }
 
-const mockReviews = [];
+const reviewsData = [];
 
 function AnimatedSection({ children, delay = 0 }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -80,13 +80,9 @@ function AnimatedSection({ children, delay = 0 }) {
 const CapacityCard = React.memo(function CapacityCard({ capacity, companyId }) {
   const isAvailable = capacity.available > 0;
 
-  const handleOrderNow = () => {
-    // TODO: Navegar a pantalla de solicitud (futuro)
-  };
+  const handleOrderNow = () => {};
 
-  const handleReserve = () => {
-    // TODO: Navegar a pantalla de reserva (futuro)
-  };
+  const handleReserve = () => {};
 
   return (
     <View style={[styles.capacityCard, { backgroundColor: colors.white }]}>
@@ -163,18 +159,11 @@ export default function CompanyDetailScreen() {
 
   const galleryImages = useMemo(() => {
     if (!company) return [];
-    const pool = [
-      'https://images.unsplash.com/photo-1558618666-fcd25c85f82e?auto=format&fit=crop&w=500&q=80',
-      'https://images.unsplash.com/photo-1565538810643-b5bdb714032a?auto=format&fit=crop&w=500&q=80',
-      'https://images.unsplash.com/photo-1527004013197-933c4bb611b3?auto=format&fit=crop&w=500&q=80',
-      'https://images.unsplash.com/photo-1545173168-9f1947eebb7f?auto=format&fit=crop&w=500&q=80',
-      'https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?auto=format&fit=crop&w=500&q=80',
-    ];
-    return [company.image, ...pool.filter((u) => u !== company.image)].filter(Boolean).slice(0, 5);
+    return [company.image].filter(Boolean);
   }, [company]);
 
   const sortedReviews = useMemo(() => {
-    const reviews = [...mockReviews];
+    const reviews = [...reviewsData];
     if (reviewFilter === 'rating') {
       reviews.sort((a, b) => b.rating - a.rating);
     }
@@ -248,15 +237,15 @@ export default function CompanyDetailScreen() {
             <View style={styles.infoRatingRow}>
               <Icon source="star" size={16} color={colors.accent} />
               <Text style={styles.infoRating}>{company.rating}</Text>
-              <Text style={styles.infoReviews}>({company.reviewCount || 245} resenas)</Text>
-              <Text style={styles.infoServicesCount}> · {company.servicesCount || 1000} servicios</Text>
+              <Text style={styles.infoReviews}>({company.reviewCount} resenas)</Text>
+              <Text style={styles.infoServicesCount}> · {company.servicesCount} servicios</Text>
             </View>
             <View style={styles.infoMetaRow}>
               <Icon source="map-marker-outline" size={14} color={colors.gray400} />
-              <Text style={styles.infoMetaText}>{company.neighborhood || company.city} · {company.distance || 1.2} km</Text>
+              <Text style={styles.infoMetaText}>{company.neighborhood || company.city} · {company.distance} km</Text>
               <View style={styles.metaDot} />
               <Icon source="clock-outline" size={14} color={colors.gray400} />
-              <Text style={styles.infoMetaText}>~{formatMinutes(company.avgTime || 45)}</Text>
+              <Text style={styles.infoMetaText}>~{formatMinutes(company.avgTime)}</Text>
             </View>
           </View>
         </AnimatedSection>
@@ -304,7 +293,7 @@ export default function CompanyDetailScreen() {
               <View style={styles.infoGridItem}>
                 <Icon source="briefcase-outline" size={20} color={colors.accent} />
                 <Text style={styles.infoGridLabel}>Experiencia</Text>
-                <Text style={styles.infoGridValue}>{company.info?.experience || '5 anos'}</Text>
+                <Text style={styles.infoGridValue}>{company.info?.experience || '-'}</Text>
               </View>
               <View style={styles.infoGridItem}>
                 <Icon source="clock-fast" size={20} color={colors.accent} />
@@ -314,18 +303,18 @@ export default function CompanyDetailScreen() {
               <View style={styles.infoGridItem}>
                 <Icon source="account-group" size={20} color={colors.accent} />
                 <Text style={styles.infoGridLabel}>Clientes</Text>
-                <Text style={styles.infoGridValue}>{company.info?.avgClients || '200/mes'}</Text>
+                <Text style={styles.infoGridValue}>{company.info?.avgClients || '-'}</Text>
               </View>
               <View style={styles.infoGridItem}>
                 <Icon source="map-marker-distance" size={20} color={colors.accent} />
                 <Text style={styles.infoGridLabel}>Cobertura</Text>
-                <Text style={styles.infoGridValue}>{company.info?.coverage || '5 km'}</Text>
+                <Text style={styles.infoGridValue}>{company.info?.coverage || '-'}</Text>
               </View>
             </View>
             <View style={styles.paymentRow}>
               <Icon source="credit-card-outline" size={18} color={colors.gray400} />
               <Text style={styles.paymentLabel}>Metodos de pago:</Text>
-              <Text style={styles.paymentMethods}>{company.info?.paymentMethods?.join(', ') || 'Efectivo, Nequi'}</Text>
+              <Text style={styles.paymentMethods}>{company.info?.paymentMethods?.join(', ') || '-'}</Text>
             </View>
           </View>
         </AnimatedSection>
@@ -418,8 +407,8 @@ export default function CompanyDetailScreen() {
 
       <View style={[styles.bottomBar, { backgroundColor: colors.white }]}>
         <View style={styles.bottomPrice}>
-          <Text style={styles.bottomPriceValue}>{formatCurrency(company.minPrice || 3500)}</Text>
-          <Text style={styles.bottomPriceLabel}>/ hora · {company.distance || 1.2} km</Text>
+          <Text style={styles.bottomPriceValue}>{formatCurrency(company.minPrice)}</Text>
+          <Text style={styles.bottomPriceLabel}>/ hora · {company.distance} km</Text>
         </View>
         <TouchableOpacity
           activeOpacity={0.9}
