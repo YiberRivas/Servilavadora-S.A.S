@@ -4,6 +4,7 @@ import { Text, useTheme, Snackbar, ProgressBar, Icon } from 'react-native-paper'
 import { useRouter } from 'expo-router';
 import AppInput from '../../src/components/ui/AppInput';
 import AppButton from '../../src/components/ui/AppButton';
+import { authService } from '../../src/services/auth.service';
 
 export default function RegisterScreen() {
   const router = useRouter();
@@ -59,7 +60,22 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!validateStep2()) return;
-    setSnackbar({ visible: true, message: 'El registro no esta disponible aun. Contacta al administrador.' });
+    setLoading(true);
+    try {
+      await authService.register({
+        username: credenciales.usuario,
+        password: credenciales.contrasena,
+        email: persona.correo,
+        nombres: persona.nombres,
+        apellidos: persona.apellidos,
+      });
+      setSnackbar({ visible: true, message: 'Registro exitoso. Ahora puedes iniciar sesion.' });
+      setTimeout(() => router.replace('/(auth)/login'), 2000);
+    } catch (err) {
+      setSnackbar({ visible: true, message: err.message || 'Error al registrar usuario' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -92,7 +108,7 @@ export default function RegisterScreen() {
               <AppInput label="Identificación" value={persona.identificacion} onChangeText={(v) => updatePersona('identificacion', v)} icon="card-bulleted" keyboardType="numeric" />
               <AppInput label="Teléfono" value={persona.telefono} onChangeText={(v) => updatePersona('telefono', v)} icon="phone" keyboardType="phone-pad" />
               <AppInput label="Correo electrónico" value={persona.correo} onChangeText={(v) => updatePersona('correo', v)} icon="email" keyboardType="email-address" autoCapitalize="none" />
-              <AppButton title="Siguiente" onPress={handleNext} />
+              <AppButton title="Siguiente" onPress={handleNext} icon="arrow-right" />
             </>
           )}
 
@@ -102,8 +118,8 @@ export default function RegisterScreen() {
               <AppInput label="Contraseña" value={credenciales.contrasena} onChangeText={(v) => updateCredenciales('contrasena', v)} icon="lock" secureTextEntry />
               <AppInput label="Confirmar contraseña" value={credenciales.confirmar} onChangeText={(v) => updateCredenciales('confirmar', v)} icon="lock-check" secureTextEntry />
               <View style={styles.buttonRow}>
-                <AppButton title="Atrás" onPress={() => setStep(1)} mode="outlined" style={styles.halfButton} />
-                <AppButton title="Registrarse" onPress={handleRegister} loading={loading} disabled={loading} style={styles.halfButton} />
+                <AppButton title="Atras" onPress={() => setStep(1)} mode="outlined" style={styles.halfButton} icon="arrow-left" />
+                <AppButton title="Registrarse" onPress={handleRegister} loading={loading} disabled={loading} style={styles.halfButton} icon="check" />
               </View>
             </>
           )}

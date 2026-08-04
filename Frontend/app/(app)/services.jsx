@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { View, StyleSheet, ScrollView, TouchableOpacity, Animated, Platform, TextInput, RefreshControl } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import { companiesService } from '../../src/services';
+import { companiesService } from '../../src/services/companies.service';
 import { formatCurrency } from '../../src/utils/formatters';
 import { colors, radii, shadows } from '../../src/theme';
 import AppButton from '../../src/components/ui/AppButton';
@@ -369,6 +369,7 @@ function ServiceCardView({ service, index, onReserve }) {
             variant="primary"
             fullWidth
             disabled={!isAvailable}
+            icon="calendar-check"
           />
         </View>
       </View>

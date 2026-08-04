@@ -12,7 +12,7 @@ from app.models.base import (
     RutaGPS, EstadoLavadora,
 )
 from app.schemas.common import ApiResponse, PaginatedResponse
-from app.dependencies import require_role
+from app.dependencies import require_role, get_admin_empresa_id
 from app.utils.logging import get_logger
 from app.utils.uuid import generate_uuid
 from app.utils.push_notifications import create_notification_and_push
@@ -29,16 +29,27 @@ async def list_alquileres(
     id_estado: int = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    current_user: Usuario = Depends(require_role("SUPER_ADMIN")),
+    current_user: Usuario = Depends(require_role("SUPER_ADMIN", "ADMIN_EMPRESA")),
     db: AsyncSession = Depends(get_db),
 ):
+    empresa_id = await get_admin_empresa_id(db, current_user)
+
     query = (
         select(Alquiler)
+        .join(SolicitudAlquiler, Alquiler.id_solicitud_alquiler == SolicitudAlquiler.id_solicitud_alquiler)
         .join(EstadoAlquiler, Alquiler.id_estado_alquiler == EstadoAlquiler.id_estado_alquiler)
+        .options(
+            selectinload(Alquiler.estado_alquiler_rel),
+            selectinload(Alquiler.cliente_empresa)
+            .selectinload(ClienteEmpresa.usuario)
+            .selectinload(Usuario.persona),
+            selectinload(Alquiler.lavadora),
+        )
     )
 
-    if id_empresa:
-        query = query.join(SolicitudAlquiler, Alquiler.id_solicitud_alquiler == SolicitudAlquiler.id_solicitud_alquiler)
+    if empresa_id is not None:
+        query = query.where(SolicitudAlquiler.id_empresa == empresa_id)
+    elif id_empresa:
         query = query.where(SolicitudAlquiler.id_empresa == id_empresa)
     if id_estado:
         query = query.where(Alquiler.id_estado_alquiler == id_estado)
@@ -49,10 +60,19 @@ async def list_alquileres(
     query = query.order_by(Alquiler.created_at.desc())
     query = query.offset((page - 1) * per_page).limit(per_page)
     result = await db.execute(query)
-    alquileres = result.scalars().all()
+    alquileres = result.unique().scalars().all()
 
     data = []
     for a in alquileres:
+        cliente_nombre = ""
+        if a.cliente_empresa and a.cliente_empresa.usuario and a.cliente_empresa.usuario.persona:
+            p = a.cliente_empresa.usuario.persona
+            cliente_nombre = f"{p.nombres} {p.apellidos}"
+
+        lavadora_nombre = ""
+        if a.lavadora:
+            lavadora_nombre = a.lavadora.codigo_interno or a.lavadora.numero_serie or ""
+
         data.append({
             "uuid": a.uuid,
             "id_estado_alquiler": a.id_estado_alquiler,
@@ -63,6 +83,8 @@ async def list_alquileres(
             "estado_nombre": a.estado_alquiler_rel.nombre if a.estado_alquiler_rel else "",
             "estado_color": a.estado_alquiler_rel.color if a.estado_alquiler_rel else "",
             "estado": a.estado,
+            "cliente_nombre": cliente_nombre,
+            "lavadora_nombre": lavadora_nombre,
         })
 
     return PaginatedResponse(
@@ -80,14 +102,29 @@ async def list_solicitudes(
     id_estado: int = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    current_user: Usuario = Depends(require_role("SUPER_ADMIN")),
+    current_user: Usuario = Depends(require_role("SUPER_ADMIN", "ADMIN_EMPRESA")),
     db: AsyncSession = Depends(get_db),
 ):
-    query = select(SolicitudAlquiler).join(
-        EstadoSolicitud, SolicitudAlquiler.id_estado_solicitud == EstadoSolicitud.id_estado_solicitud
+    empresa_id = await get_admin_empresa_id(db, current_user)
+
+    query = (
+        select(SolicitudAlquiler)
+        .join(EstadoSolicitud, SolicitudAlquiler.id_estado_solicitud == EstadoSolicitud.id_estado_solicitud)
+        .options(
+            selectinload(SolicitudAlquiler.estado_solicitud_rel),
+            selectinload(SolicitudAlquiler.cliente_empresa)
+            .selectinload(ClienteEmpresa.usuario)
+            .selectinload(Usuario.persona),
+            selectinload(SolicitudAlquiler.asignaciones)
+            .selectinload(AsignacionSolicitud.lavadora),
+            selectinload(SolicitudAlquiler.alquileres),
+            selectinload(SolicitudAlquiler.capacidad),
+        )
     )
 
-    if id_empresa:
+    if empresa_id is not None:
+        query = query.where(SolicitudAlquiler.id_empresa == empresa_id)
+    elif id_empresa:
         query = query.where(SolicitudAlquiler.id_empresa == id_empresa)
     if id_estado:
         query = query.where(SolicitudAlquiler.id_estado_solicitud == id_estado)
@@ -98,20 +135,55 @@ async def list_solicitudes(
     query = query.order_by(SolicitudAlquiler.created_at.desc())
     query = query.offset((page - 1) * per_page).limit(per_page)
     result = await db.execute(query)
-    solicitudes = result.scalars().all()
+    solicitudes = result.unique().scalars().all()
 
     data = []
     for s in solicitudes:
+        cliente_nombre = ""
+        cliente_telefono = ""
+        if s.cliente_empresa and s.cliente_empresa.usuario and s.cliente_empresa.usuario.persona:
+            p = s.cliente_empresa.usuario.persona
+            cliente_nombre = f"{p.nombres} {p.apellidos}"
+            cliente_telefono = p.telefono or ""
+
+        lavadora_nombre = ""
+        if s.asignaciones:
+            for a in s.asignaciones:
+                if a.lavadora:
+                    lavadora_nombre = a.lavadora.codigo_interno or a.lavadora.numero_serie or ""
+                    break
+
+        alquiler_uuid = None
+        if s.alquileres:
+            for alq in s.alquileres:
+                if alq.estado == 1:
+                    alquiler_uuid = alq.uuid
+                    break
+
+        capacidad_kg = ""
+        capacidad_tipo = ""
+        if s.capacidad:
+            capacidad_kg = s.capacidad.capacidad_kg if s.capacidad.capacidad_kg else ""
+            capacidad_tipo = s.capacidad.descripcion or ""
+
         data.append({
             "uuid": s.uuid,
             "id_empresa": s.id_empresa,
             "fecha_solicitud": s.fecha_solicitud.isoformat() if s.fecha_solicitud else None,
             "fecha_programada": s.fecha_programada.isoformat() if s.fecha_programada else None,
             "direccion_entrega": s.direccion_entrega,
+            "observaciones": s.observaciones or "",
             "id_estado_solicitud": s.id_estado_solicitud,
             "estado_nombre": s.estado_solicitud_rel.nombre if s.estado_solicitud_rel else "",
             "estado_color": s.estado_solicitud_rel.color if s.estado_solicitud_rel else "",
+            "estado_codigo": s.estado_solicitud_rel.codigo if s.estado_solicitud_rel else "",
             "estado": s.estado,
+            "cliente_nombre": cliente_nombre,
+            "cliente_telefono": cliente_telefono,
+            "lavadora_nombre": lavadora_nombre,
+            "alquiler_uuid": alquiler_uuid,
+            "capacidad_kg": capacidad_kg,
+            "capacidad_tipo": capacidad_tipo,
         })
 
     return PaginatedResponse(

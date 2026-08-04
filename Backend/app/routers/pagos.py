@@ -1,7 +1,5 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
-from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
@@ -11,7 +9,8 @@ from app.models.base import (
     Alquiler, SolicitudAlquiler, ClienteEmpresa,
 )
 from app.schemas.common import ApiResponse, PaginatedResponse
-from app.dependencies import get_current_user, require_role
+from app.schemas.pagos import PagoCreate
+from app.dependencies import get_current_user, require_role, get_admin_empresa_id
 from app.utils.logging import get_logger
 from app.utils.uuid import generate_uuid
 from app.utils.push_notifications import create_notification_and_push
@@ -19,15 +18,6 @@ from math import ceil
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/pagos", tags=["Pagos"])
-
-
-class PagoCreate(BaseModel):
-    id_liquidacion_alquiler: int
-    id_metodo_pago: int
-    valor: float
-    numero_transaccion: Optional[str] = None
-    referencia: Optional[str] = None
-    observaciones: Optional[str] = None
 
 
 @router.get("/metodos", response_model=ApiResponse)
@@ -49,15 +39,25 @@ async def list_metodos_pago(
 async def list_pagos(
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    current_user: Usuario = Depends(get_current_user),
+    current_user: Usuario = Depends(require_role("SUPER_ADMIN", "ADMIN_EMPRESA")),
     db: AsyncSession = Depends(get_db),
 ):
-    ce_result = await db.execute(
-        select(ClienteEmpresa).where(
-            ClienteEmpresa.id_usuario == current_user.id_usuario,
-            ClienteEmpresa.estado == 1,
+    empresa_id = await get_admin_empresa_id(db, current_user)
+
+    if empresa_id is not None:
+        ce_result = await db.execute(
+            select(ClienteEmpresa).where(
+                ClienteEmpresa.id_empresa == empresa_id,
+                ClienteEmpresa.estado == 1,
+            )
         )
-    )
+    else:
+        ce_result = await db.execute(
+            select(ClienteEmpresa).where(
+                ClienteEmpresa.id_usuario == current_user.id_usuario,
+                ClienteEmpresa.estado == 1,
+            )
+        )
     cliente_empresas = ce_result.scalars().all()
     ce_ids = [ce.id_cliente_empresa for ce in cliente_empresas]
 

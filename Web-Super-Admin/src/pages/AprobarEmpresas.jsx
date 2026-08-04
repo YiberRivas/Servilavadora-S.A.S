@@ -96,7 +96,7 @@ export default function AprobarEmpresas() {
         setTotalRecords((prev) => prev - 1)
         showToast(`Empresa "${empresa.razon_social || empresa.nombre_comercial}" aprobada exitosamente`)
       } else {
-        showToast(result.message || 'Error al aprobar empresa', 'danger')
+        showToast(response.message || 'Error al aprobar empresa', 'danger')
       }
     } catch (error) {
       showToast('Error de conexion al aprobar empresa', 'danger')
@@ -123,7 +123,7 @@ export default function AprobarEmpresas() {
         setTotalRecords((prev) => prev - 1)
         showToast(`Empresa "${rejectDialog.razon_social || rejectDialog.nombre_comercial}" rechazada`, 'danger')
       } else {
-        showToast(result.message || 'Error al rechazar empresa', 'danger')
+        showToast(response.message || 'Error al rechazar empresa', 'danger')
       }
     } catch (error) {
       showToast('Error de conexion al rechazar empresa', 'danger')

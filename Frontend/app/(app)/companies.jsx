@@ -2,7 +2,7 @@ import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react'
 import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, TextInput, Platform, RefreshControl } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useRouter } from 'expo-router';
-import { companiesService } from '../../src/services';
+import { companiesService } from '../../src/services/companies.service';
 import { formatMinutes } from '../../src/utils/formatters';
 import { colors, radii, shadows } from '../../src/theme';
 import AppButton from '../../src/components/ui/AppButton';
@@ -120,7 +120,7 @@ function FeaturedCard({ company, onPress, index }) {
             <Icon source="clock-outline" size={11} color={colors.gray400} />
             <Text style={styles.featuredTime}>~{formatMinutes(company.avgTime)}</Text>
           </View>
-          <AppButton title="Ver empresa" onPress={() => onPress(company)} variant="outline" fullWidth />
+          <AppButton title="Ver empresa" onPress={() => onPress(company)} variant="outline" fullWidth icon="storefront" />
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -221,6 +221,7 @@ function CompanyCardView({ company, onPress, index }) {
           onPress={() => onPress(company)}
           variant="outline"
           fullWidth
+          icon="storefront"
         />
       </View>
     </Animated.View>

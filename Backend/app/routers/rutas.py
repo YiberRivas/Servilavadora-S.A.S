@@ -18,25 +18,11 @@ from app.dependencies import require_role, get_current_user
 from app.utils.logging import get_logger
 from app.utils.uuid import generate_uuid
 from app.utils.push_notifications import create_notification_and_push
-from math import ceil, radians, sin, cos, sqrt, atan2
+from app.utils.geolocation import haversine, estimate_time
+from math import ceil
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/rutas", tags=["Rutas"])
-
-
-def haversine(lat1, lon1, lat2, lon2):
-    R = 6371000
-    phi1, phi2 = radians(lat1), radians(lat2)
-    dphi = radians(lat2 - lat1)
-    dlam = radians(lon2 - lon1)
-    a = sin(dphi / 2) ** 2 + cos(phi1) * cos(phi2) * sin(dlam / 2) ** 2
-    return R * 2 * atan2(sqrt(a), sqrt(1 - a))
-
-
-def estimate_time(distance_meters, speed_kmh):
-    if speed_kmh and speed_kmh > 0:
-        return int((distance_meters / 1000) / speed_kmh * 3600)
-    return int(distance_meters / 12)
 
 
 # --- Admin CRUD (existente) ---

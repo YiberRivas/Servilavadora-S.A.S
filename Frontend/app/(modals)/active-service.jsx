@@ -221,7 +221,7 @@ export default function ActiveServiceScreen() {
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 }}>
           <Icon source="alert-circle-outline" size={48} color={colors.error} />
           <Text style={{ marginTop: 12, color: colors.gray600, textAlign: 'center' }}>{error || 'No se encontro el servicio'}</Text>
-          <AppButton title="Reintentar" onPress={loadServiceData} variant="outline" style={{ marginTop: 16 }} />
+          <AppButton title="Reintentar" onPress={loadServiceData} variant="outline" style={{ marginTop: 16 }} icon="refresh" />
         </View>
       </View>
     );

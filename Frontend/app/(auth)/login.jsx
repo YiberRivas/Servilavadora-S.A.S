@@ -64,6 +64,8 @@ export default function LoginScreen() {
       await signIn(result.user, result.access_token, result.refresh_token);
       if (result.user.rol === 'REPARTIDOR') {
         router.replace('/(driver)');
+      } else if (result.user.rol === 'ADMIN_EMPRESA') {
+        router.replace('/(admin)');
       } else {
         router.replace('/(app)');
       }
@@ -234,7 +236,7 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          <AppButton title="Iniciar sesion" onPress={handleLogin} loading={loading} disabled={loading} fullWidth />
+          <AppButton title="Iniciar sesion" onPress={handleLogin} loading={loading} disabled={loading} fullWidth icon="login" />
 
           <Text style={styles.terms}>
             Al continuar, aceptas nuestros <Text style={styles.termsLink}>Terminos</Text> y{' '}

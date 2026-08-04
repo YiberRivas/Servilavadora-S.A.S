@@ -40,6 +40,7 @@ export default function GpsTabScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <Icon source="map-marker-radius" size={22} color={colors.accent} />
         <Text style={styles.headerTitle}>Rastreo GPS</Text>
       </View>
 
@@ -83,7 +84,7 @@ export default function GpsTabScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.gray50 || '#F9FAFB' },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { paddingHorizontal: 20, paddingTop: 52, paddingBottom: 16, backgroundColor: colors.white },
+  header: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingTop: 52, paddingBottom: 16, backgroundColor: colors.white },
   headerTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 17, color: colors.blue900 },
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40 },
   emptyTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 18, color: colors.blue900, marginTop: 16 },

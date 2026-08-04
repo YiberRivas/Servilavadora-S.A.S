@@ -45,24 +45,30 @@ async def list_tickets(
     result = await db.execute(query)
     tickets = result.scalars().all()
 
+    empresa_ids = list({t.id_empresa for t in tickets if t.id_empresa})
+    emp_map = {}
+    if empresa_ids:
+        emp_q = select(Empresa).where(Empresa.id_empresa.in_(empresa_ids))
+        emp_map = {e.id_empresa: e for e in (await db.execute(emp_q)).scalars().all()}
+
+    ticket_ids = [t.id_soporte_ticket for t in tickets]
+    resp_q = (
+        select(SoporteRespuesta.id_soporte_ticket, func.count().label("cnt"))
+        .where(SoporteRespuesta.id_soporte_ticket.in_(ticket_ids))
+        .group_by(SoporteRespuesta.id_soporte_ticket)
+    )
+    resp_map = {r.id_soporte_ticket: r.cnt for r in (await db.execute(resp_q)).all()}
+
     data = []
     for t in tickets:
-        empresa_nombre = ""
-        if t.id_empresa:
-            emp = (await db.execute(select(Empresa).where(Empresa.id_empresa == t.id_empresa))).scalar_one_or_none()
-            empresa_nombre = emp.razon_social if emp else ""
-
-        resp_count = (await db.execute(
-            select(func.count()).where(SoporteRespuesta.id_soporte_ticket == t.id_soporte_ticket)
-        )).scalar() or 0
-
+        emp = emp_map.get(t.id_empresa) if t.id_empresa else None
         data.append({
             "uuid": t.uuid, "asunto": t.asunto, "descripcion": t.descripcion,
             "prioridad": t.prioridad, "estado": t.estado,
             "fecha_cierre": t.fecha_cierre.isoformat() if t.fecha_cierre else None,
             "created_at": t.created_at.isoformat() if t.created_at else None,
-            "empresa_nombre": empresa_nombre,
-            "total_respuestas": resp_count,
+            "empresa_nombre": emp.razon_social if emp else "",
+            "total_respuestas": resp_map.get(t.id_soporte_ticket, 0),
         })
 
     return PaginatedResponse(

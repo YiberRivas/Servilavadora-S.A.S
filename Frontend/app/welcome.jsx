@@ -112,12 +112,14 @@ export default function WelcomeScreen() {
               onPress={handleExplore}
               variant="primary"
               fullWidth
+              icon="compass"
             />
             <AppButton
               title="Conocer la plataforma"
               onPress={toggleSteps}
               variant="ghost"
               fullWidth
+              icon="information-outline"
             />
           </View>
         )}

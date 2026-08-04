@@ -1,12 +1,11 @@
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
-from typing import Optional
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from app.database import get_db
 from app.models.base import Usuario, Notificacion, DeviceToken
 from app.schemas.common import ApiResponse, PaginatedResponse
+from app.schemas.pagos import DeviceTokenRequest
 from app.dependencies import get_current_user, require_role
 from app.utils.logging import get_logger
 from app.utils.uuid import generate_uuid
@@ -14,11 +13,6 @@ from math import ceil
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/notificaciones", tags=["Notificaciones"])
-
-
-class DeviceTokenRequest(BaseModel):
-    expo_push_token: str
-    dispositivo: Optional[str] = None
 
 
 @router.get("", response_model=PaginatedResponse)

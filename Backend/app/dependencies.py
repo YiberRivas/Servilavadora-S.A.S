@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.security.jwt import decode_token
-from app.models.base import Usuario
+from app.models.base import Usuario, Empresa, EmpleadoEmpresa
 
 security = HTTPBearer()
 
@@ -60,3 +60,16 @@ def require_role(*roles: str):
             )
         return current_user
     return role_checker
+
+
+async def get_admin_empresa_id(db: AsyncSession, current_user: Usuario):
+    if current_user.rol.codigo == "SUPER_ADMIN":
+        return None
+    emp_result = await db.execute(
+        select(EmpleadoEmpresa).where(
+            EmpleadoEmpresa.id_usuario == current_user.id_usuario,
+            EmpleadoEmpresa.estado == 1,
+        )
+    )
+    empleado = emp_result.scalar_one_or_none()
+    return empleado.id_empresa if empleado else None

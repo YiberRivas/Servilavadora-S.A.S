@@ -5,27 +5,17 @@ from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.base import (
-    Usuario, Repartidor, Persona, Empresa, EmpleadoEmpresa,
+    Usuario, Repartidor, Persona, EmpleadoEmpresa,
 )
 from app.schemas.common import ApiResponse, PaginatedResponse
 from app.schemas.modulos import RepartidorCreate, RepartidorUpdate
-from app.dependencies import require_role
+from app.dependencies import require_role, get_admin_empresa_id
 from app.utils.logging import get_logger
 from app.utils.uuid import generate_uuid
 from math import ceil
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/repartidores", tags=["Repartidores"])
-
-
-async def get_admin_empresa_id(db, current_user):
-    if current_user.rol.codigo == "SUPER_ADMIN":
-        return None
-    emp_result = await db.execute(
-        select(Empresa).where(Empresa.id_usuario == current_user.id_usuario)
-    )
-    empresa = emp_result.scalar_one_or_none()
-    return empresa.id_empresa if empresa else None
 
 
 @router.get("", response_model=PaginatedResponse)
@@ -44,6 +34,7 @@ async def list_repartidores(
         select(Repartidor)
         .join(Usuario, Repartidor.id_usuario == Usuario.id_usuario)
         .join(Persona, Usuario.id_persona == Persona.id_persona)
+        .options(selectinload(Repartidor.usuario).selectinload(Usuario.persona))
     )
 
     if empresa_id is not None:
@@ -63,14 +54,11 @@ async def list_repartidores(
     query = query.order_by(Repartidor.created_at.desc())
     query = query.offset((page - 1) * per_page).limit(per_page)
     result = await db.execute(query)
-    repartidores = result.scalars().all()
+    repartidores = result.scalars().unique().all()
 
     data = []
     for r in repartidores:
-        user = (await db.execute(
-            select(Usuario).options(selectinload(Usuario.persona)).where(Usuario.id_usuario == r.id_usuario)
-        )).scalar_one_or_none()
-        p = user.persona if user else None
+        p = r.usuario.persona if r.usuario and r.usuario.persona else None
         data.append({
             "uuid": r.uuid,
             "id_empresa": r.id_empresa,

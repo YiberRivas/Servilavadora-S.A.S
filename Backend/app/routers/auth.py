@@ -294,3 +294,27 @@ async def change_password(
 
     logger.info("Contrasena cambiada: %s", current_user.username)
     return ApiResponse(success=True, message="Contrasena actualizada")
+
+
+@router.post("/forgot-password", response_model=ApiResponse)
+async def forgot_password(
+    request: dict,
+    db: AsyncSession = Depends(get_db),
+):
+    email = request.get("email", "").strip()
+    if not email:
+        return ApiResponse(success=False, message="El correo es requerido")
+
+    result = await db.execute(
+        select(Usuario)
+        .options(selectinload(Usuario.persona))
+        .join(Persona, Usuario.id_persona == Persona.id_persona)
+        .where(Persona.correo == email)
+    )
+    user = result.scalar_one_or_none()
+
+    if user is None:
+        return ApiResponse(success=True, message="Si el correo esta registrado, recibiras instrucciones para recuperar tu contrasena")
+
+    logger.info("Solicitud de recuperacion para: %s", email)
+    return ApiResponse(success=True, message="Si el correo esta registrado, recibiras instrucciones para recuperar tu contrasena")

@@ -1,6 +1,7 @@
 from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import select, func, text
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.base import (
@@ -12,7 +13,8 @@ from app.models.base import (
 from app.schemas.common import ApiResponse, PaginatedResponse
 from app.dependencies import get_current_user
 from app.utils.logging import get_logger
-from math import ceil, radians, sin, cos, sqrt, atan2
+from app.utils.geolocation import haversine
+from math import ceil
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/repartidor", tags=["Repartidor"])
@@ -157,46 +159,56 @@ async def get_asignaciones(
     result = await db.execute(query)
     alquileres = result.scalars().all()
 
+    sol_ids = list({a.id_solicitud_alquiler for a in alquileres if a.id_solicitud_alquiler})
+    sol_map = {}
+    if sol_ids:
+        sol_q = select(SolicitudAlquiler).where(SolicitudAlquiler.id_solicitud_alquiler.in_(sol_ids))
+        sol_map = {s.id_solicitud_alquiler: s for s in (await db.execute(sol_q)).scalars().all()}
+
+    emp_ids = list({s.id_empresa for s in sol_map.values() if s.id_empresa})
+    emp_map = {}
+    if emp_ids:
+        emp_q = select(Empresa).where(Empresa.id_empresa.in_(emp_ids))
+        emp_map = {e.id_empresa: e for e in (await db.execute(emp_q)).scalars().all()}
+
+    ce_ids = list({a.id_cliente_empresa for a in alquileres if a.id_cliente_empresa})
+    ce_map = {}
+    if ce_ids:
+        ce_q = select(ClienteEmpresa).where(ClienteEmpresa.id_cliente_empresa.in_(ce_ids))
+        ce_map = {c.id_cliente_empresa: c for c in (await db.execute(ce_q)).scalars().all()}
+
+    user_ids = list({c.id_usuario for c in ce_map.values() if c.id_usuario})
+    user_map = {}
+    if user_ids:
+        user_q = select(Usuario).options(selectinload(Usuario.persona)).where(Usuario.id_usuario.in_(user_ids))
+        user_map = {u.id_usuario: u for u in (await db.execute(user_q)).scalars().unique().all()}
+
+    est_ids = list({a.id_estado_alquiler for a in alquileres})
+    est_map = {}
+    if est_ids:
+        est_q = select(EstadoAlquiler).where(EstadoAlquiler.id_estado_alquiler.in_(est_ids))
+        est_map = {e.id_estado_alquiler: e for e in (await db.execute(est_q)).scalars().all()}
+
+    alq_ids = [a.id_alquiler for a in alquileres]
+    ruta_q = select(RutaGPS.id_alquiler, RutaGPS.uuid).where(RutaGPS.id_alquiler.in_(alq_ids)).limit(len(alq_ids))
+    ruta_map = {r.id_alquiler: r.uuid for r in (await db.execute(ruta_q)).all()}
+
     data = []
     for a in alquileres:
-        sol_result = await db.execute(
-            select(SolicitudAlquiler).where(SolicitudAlquiler.id_solicitud_alquiler == a.id_solicitud_alquiler)
-        )
-        sol = sol_result.scalar_one_or_none()
+        sol = sol_map.get(a.id_solicitud_alquiler)
+        emp = emp_map.get(sol.id_empresa) if sol else None
+        empresa_nombre = emp.nombre_comercial or emp.razon_social if emp else ""
 
-        empresa_nombre = ""
         cliente_nombre = ""
-        direccion = ""
-        if sol:
-            emp_result = await db.execute(
-                select(Empresa).where(Empresa.id_empresa == sol.id_empresa)
-            )
-            emp = emp_result.scalar_one_or_none()
-            empresa_nombre = emp.nombre_comercial or emp.razon_social if emp else ""
+        ce = ce_map.get(a.id_cliente_empresa)
+        if ce:
+            u = user_map.get(ce.id_usuario)
+            if u and u.persona:
+                cliente_nombre = f"{u.persona.nombres} {u.persona.apellidos}"
 
-            ce_result = await db.execute(
-                select(ClienteEmpresa).where(ClienteEmpresa.id_cliente_empresa == a.id_cliente_empresa)
-            )
-            ce = ce_result.scalar_one_or_none()
-            if ce:
-                user_result = await db.execute(
-                    select(Usuario).options(selectinload(Usuario.persona)).where(Usuario.id_usuario == ce.id_usuario)
-                )
-                u = user_result.scalar_one_or_none()
-                if u and u.persona:
-                    cliente_nombre = f"{u.persona.nombres} {u.persona.apellidos}"
-
-            direccion = sol.direccion_entrega or ""
-
-        estado_result = await db.execute(
-            select(EstadoAlquiler).where(EstadoAlquiler.id_estado_alquiler == a.id_estado_alquiler)
-        )
-        est = estado_result.scalar_one_or_none()
-
-        ruta_result = await db.execute(
-            select(RutaGPS.uuid).where(RutaGPS.id_alquiler == a.id_alquiler).limit(1)
-        )
-        ruta_uuid = ruta_result.scalar_one_or_none()
+        direccion = sol.direccion_entrega if sol else ""
+        est = est_map.get(a.id_estado_alquiler)
+        ruta_uuid = ruta_map.get(a.id_alquiler)
 
         data.append({
             "uuid": a.uuid,
@@ -255,57 +267,74 @@ async def get_historial(
     result = await db.execute(query)
     alquileres = result.scalars().all()
 
+    sol_ids = list({a.id_solicitud_alquiler for a in alquileres if a.id_solicitud_alquiler})
+    sol_map = {}
+    if sol_ids:
+        sol_q = select(SolicitudAlquiler).where(SolicitudAlquiler.id_solicitud_alquiler.in_(sol_ids))
+        sol_map = {s.id_solicitud_alquiler: s for s in (await db.execute(sol_q)).scalars().all()}
+
+    emp_ids = list({s.id_empresa for s in sol_map.values() if s.id_empresa})
+    emp_map = {}
+    if emp_ids:
+        emp_q = select(Empresa).where(Empresa.id_empresa.in_(emp_ids))
+        emp_map = {e.id_empresa: e for e in (await db.execute(emp_q)).scalars().all()}
+
+    ce_ids = list({a.id_cliente_empresa for a in alquileres if a.id_cliente_empresa})
+    ce_map = {}
+    if ce_ids:
+        ce_q = select(ClienteEmpresa).where(ClienteEmpresa.id_cliente_empresa.in_(ce_ids))
+        ce_map = {c.id_cliente_empresa: c for c in (await db.execute(ce_q)).scalars().all()}
+
+    user_ids = list({c.id_usuario for c in ce_map.values() if c.id_usuario})
+    user_map = {}
+    if user_ids:
+        user_q = select(Usuario).options(selectinload(Usuario.persona)).where(Usuario.id_usuario.in_(user_ids))
+        user_map = {u.id_usuario: u for u in (await db.execute(user_q)).scalars().unique().all()}
+
+    alq_ids = [a.id_alquiler for a in alquileres]
+    ruta_q = select(RutaGPS).where(RutaGPS.id_alquiler.in_(alq_ids))
+    rutas = (await db.execute(ruta_q)).scalars().all()
+    ruta_map = {r.id_alquiler: r for r in rutas}
+
+    ruta_ids = [r.id_ruta_gps for r in rutas]
+    ubicaciones_map = {}
+    if ruta_ids:
+        loc_q = (
+            select(UbicacionRuta)
+            .where(UbicacionRuta.id_ruta_gps.in_(ruta_ids))
+            .order_by(UbicacionRuta.id_ruta_gps, UbicacionRuta.timestampGPS.asc())
+        )
+        all_locs = (await db.execute(loc_q)).scalars().all()
+        for loc in all_locs:
+            ubicaciones_map.setdefault(loc.id_ruta_gps, []).append(loc)
+
     data = []
     for a in alquileres:
-        sol_result = await db.execute(
-            select(SolicitudAlquiler).where(SolicitudAlquiler.id_solicitud_alquiler == a.id_solicitud_alquiler)
-        )
-        sol = sol_result.scalar_one_or_none()
+        sol = sol_map.get(a.id_solicitud_alquiler)
+        emp = emp_map.get(sol.id_empresa) if sol else None
+        empresa_nombre = emp.nombre_comercial or emp.razon_social if emp else ""
 
-        empresa_nombre = ""
         cliente_nombre = ""
-        direccion = ""
-        if sol:
-            emp_result = await db.execute(
-                select(Empresa).where(Empresa.id_empresa == sol.id_empresa)
-            )
-            emp = emp_result.scalar_one_or_none()
-            empresa_nombre = emp.nombre_comercial or emp.razon_social if emp else ""
+        ce = ce_map.get(a.id_cliente_empresa)
+        if ce:
+            u = user_map.get(ce.id_usuario)
+            if u and u.persona:
+                cliente_nombre = f"{u.persona.nombres} {u.persona.apellidos}"
 
-            ce_result = await db.execute(
-                select(ClienteEmpresa).where(ClienteEmpresa.id_cliente_empresa == a.id_cliente_empresa)
-            )
-            ce = ce_result.scalar_one_or_none()
-            if ce:
-                user_result = await db.execute(
-                    select(Usuario).options(selectinload(Usuario.persona)).where(Usuario.id_usuario == ce.id_usuario)
-                )
-                u = user_result.scalar_one_or_none()
-                if u and u.persona:
-                    cliente_nombre = f"{u.persona.nombres} {u.persona.apellidos}"
-
-            direccion = sol.direccion_entrega or ""
+        direccion = sol.direccion_entrega if sol else ""
 
         duracion = 0
         kilometros = 0.0
         if a.fecha_inicio and a.fecha_fin:
             duracion = int((a.fecha_fin - a.fecha_inicio).total_seconds())
 
-        ruta_result = await db.execute(
-            select(RutaGPS).where(RutaGPS.id_alquiler == a.id_alquiler)
-        )
-        ruta = ruta_result.scalar_one_or_none()
-        if ruta:
-            loc_result = await db.execute(
-                select(UbicacionRuta).where(UbicacionRuta.id_ruta_gps == ruta.id_ruta_gps)
-                .order_by(UbicacionRuta.timestampGPS.asc())
-            )
-            ubicaciones = loc_result.scalars().all()
-            for i, u in enumerate(ubicaciones):
-                if i > 0:
-                    prev = ubicaciones[i - 1]
-                    d = _haversine(float(prev.latitud), float(prev.longitud), float(u.latitud), float(u.longitud))
-                    kilometros += d
+        ruta = ruta_map.get(a.id_alquiler)
+        ubicaciones = ubicaciones_map.get(ruta.id_ruta_gps, []) if ruta else []
+        for i, u in enumerate(ubicaciones):
+            if i > 0:
+                prev = ubicaciones[i - 1]
+                d = haversine(float(prev.latitud), float(prev.longitud), float(u.latitud), float(u.longitud))
+                kilometros += d
 
         data.append({
             "uuid": a.uuid,
@@ -328,12 +357,3 @@ async def get_historial(
         "per_page": per_page,
         "total_pages": ceil(total / per_page) if per_page > 0 else 0,
     })
-
-
-def _haversine(lat1, lon1, lat2, lon2):
-    R = 6371000
-    phi1, phi2 = radians(lat1), radians(lat2)
-    dphi = radians(lat2 - lat1)
-    dlam = radians(lon2 - lon1)
-    a = sin(dphi / 2) ** 2 + cos(phi1) * cos(phi2) * sin(dlam / 2) ** 2
-    return R * 2 * atan2(sqrt(a), sqrt(1 - a))

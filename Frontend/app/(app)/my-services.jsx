@@ -277,6 +277,29 @@ export default function MyServicesScreen() {
     }
   }, [router, selectedService]);
 
+  const handleSolicitarFinalizacion = useCallback(() => {
+    Alert.alert('Solicitar devolucion', '¿Deseas solicitar la recogida de la lavadora?', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Solicitar',
+        onPress: async () => {
+          try {
+            const res = await requestService.solicitarFinalizacion(selectedService.uuid);
+            if (res.success) {
+              setShowDetail(false);
+              Alert.alert('Solicitud enviada', 'La empresa fue notificada para programar la recogida.');
+              await loadServices();
+            } else {
+              Alert.alert('Error', res.message || 'No fue posible solicitar la devolucion.');
+            }
+          } catch (err) {
+            Alert.alert('Error', err.message || 'No fue posible solicitar la devolucion.');
+          }
+        },
+      },
+    ]);
+  }, [selectedService?.uuid, loadServices]);
+
   if (isLoading) {
     return (
       <View style={styles.screen}>
@@ -534,6 +557,9 @@ export default function MyServicesScreen() {
                   <View style={styles.detailActions}>
                     {selectedService.status === 'en_uso' && (
                       <AppButton title="Abrir Mi Servicio Activo" onPress={handleNavigateActive} variant="primary" fullWidth icon="play-circle-outline" />
+                    )}
+                    {selectedService.status === 'en_uso' && (
+                      <AppButton title="Solicitar devolucion" onPress={handleSolicitarFinalizacion} variant="outline" fullWidth icon="calendar-clock" />
                     )}
                     {selectedService.puedeRastrear && (
                       <AppButton title="Seguir Servicio" onPress={() => Alert.alert('Proximamente', 'El seguimiento en tiempo real estara disponible pronto.')} variant="primary" fullWidth icon="crosshairs-gps" />

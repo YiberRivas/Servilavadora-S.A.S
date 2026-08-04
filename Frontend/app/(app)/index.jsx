@@ -4,7 +4,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { homeCategories } from '../../src/constants/data/home';
-import { companiesService } from '../../src/services';
+import { companiesService } from '../../src/services/companies.service';
 import { colors, radii, shadows } from '../../src/theme';
 import AppButton from '../../src/components/ui/AppButton';
 import SkeletonCard from '../../src/components/ui/SkeletonCard';
@@ -272,6 +272,7 @@ export default function HomeScreen() {
             onPress={() => router.push('/(app)/services')}
             variant="primary"
             fullWidth
+            icon="washing-machine"
           />
         </View>
       </ScrollView>

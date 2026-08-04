@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, StyleSheet, ScrollView, TouchableOpacity, Animated, Alert, Switch, RefreshControl, ActivityIndicator, Image } from 'react-native';
+import { View, StyleSheet, ScrollView, TouchableOpacity, Animated, Alert, Switch, RefreshControl, ActivityIndicator, Image, Modal, TextInput } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
 import { profileService } from '../../src/services/profile.service';
+import { authService } from '../../src/services/auth.service';
 import { formatCurrency } from '../../src/utils/formatters';
 import { colors, radii, shadows } from '../../src/theme';
 import { FAQ_ITEMS } from '../../src/constants';
@@ -47,6 +48,14 @@ export default function ProfileScreen() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [expandedFaq, setExpandedFaq] = useState(null);
 
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editForm, setEditForm] = useState({ nombres: '', apellidos: '', telefono: '' });
+  const [editLoading, setEditLoading] = useState(false);
+
+  const [passwordModalVisible, setPasswordModalVisible] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({ current: '', newPass: '', confirm: '' });
+  const [passwordLoading, setPasswordLoading] = useState(false);
+
   const loadProfile = useCallback(async (isRefresh = false) => {
     try {
       if (isRefresh) setRefreshing(true);
@@ -84,8 +93,65 @@ export default function ProfileScreen() {
   }, [signOut, router]);
 
   const handleChangePassword = useCallback(() => {
-    Alert.alert('Cambiar contrasena', 'Funcionalidad proximamente disponible.');
+    setPasswordForm({ current: '', newPass: '', confirm: '' });
+    setPasswordModalVisible(true);
   }, []);
+
+  const handleSubmitPassword = useCallback(async () => {
+    if (!passwordForm.current || !passwordForm.newPass || !passwordForm.confirm) {
+      Alert.alert('Error', 'Completa todos los campos');
+      return;
+    }
+    if (passwordForm.newPass !== passwordForm.confirm) {
+      Alert.alert('Error', 'Las contrasenas no coinciden');
+      return;
+    }
+    if (passwordForm.newPass.length < 6) {
+      Alert.alert('Error', 'La contrasena debe tener al menos 6 caracteres');
+      return;
+    }
+    setPasswordLoading(true);
+    try {
+      await authService.changePassword(passwordForm.current, passwordForm.newPass);
+      setPasswordModalVisible(false);
+      Alert.alert('Exito', 'Contrasena actualizada correctamente');
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Error al cambiar contrasena');
+    } finally {
+      setPasswordLoading(false);
+    }
+  }, [passwordForm]);
+
+  const handleEditProfile = useCallback(() => {
+    setEditForm({
+      nombres: profile?.nombres || '',
+      apellidos: profile?.apellidos || '',
+      telefono: profile?.telefono || '',
+    });
+    setEditModalVisible(true);
+  }, [profile]);
+
+  const handleSubmitEdit = useCallback(async () => {
+    if (!editForm.nombres || !editForm.apellidos) {
+      Alert.alert('Error', 'Nombres y apellidos son requeridos');
+      return;
+    }
+    setEditLoading(true);
+    try {
+      await profileService.updateProfile(user.uuid, {
+        nombres: editForm.nombres,
+        apellidos: editForm.apellidos,
+        telefono: editForm.telefono,
+      });
+      setEditModalVisible(false);
+      loadProfile();
+      Alert.alert('Exito', 'Perfil actualizado correctamente');
+    } catch (err) {
+      Alert.alert('Error', err.message || 'Error al actualizar perfil');
+    } finally {
+      setEditLoading(false);
+    }
+  }, [editForm, user?.uuid, loadProfile]);
 
   const handleToggleFaq = useCallback((id) => {
     setExpandedFaq((prev) => (prev === id ? null : id));
@@ -104,7 +170,7 @@ export default function ProfileScreen() {
       <View style={[styles.screen, { justifyContent: 'center', alignItems: 'center', padding: 24 }]}>
         <Icon source="alert-circle-outline" size={48} color={colors.error} />
         <Text style={{ fontFamily: 'Inter_500Medium', fontSize: 16, color: colors.gray600, marginTop: 12, textAlign: 'center' }}>{error}</Text>
-        <AppButton title="Reintentar" onPress={() => loadProfile()} style={{ marginTop: 16 }} />
+        <AppButton title="Reintentar" onPress={() => loadProfile()} style={{ marginTop: 16 }} icon="refresh" />
       </View>
     );
   }
@@ -115,6 +181,7 @@ export default function ProfileScreen() {
     : '';
 
   return (
+    <>
     <ScrollView
       style={styles.screen}
       contentContainerStyle={styles.scrollContent}
@@ -166,7 +233,7 @@ export default function ProfileScreen() {
 
           <AppButton
             title="Editar informacion"
-            onPress={() => Alert.alert('Proximamente', 'La edicion de perfil estara disponible pronto.')}
+            onPress={handleEditProfile}
             variant="outline"
             fullWidth
             icon="pencil"
@@ -512,94 +579,155 @@ export default function ProfileScreen() {
 
       <View style={{ height: 40 }} />
     </ScrollView>
+
+    <Modal visible={editModalVisible} transparent animationType="slide">
+      <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+        <View style={{ backgroundColor: colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 }}>
+          <Text style={{ fontFamily: 'Poppins_600SemiBold', fontSize: 18, color: colors.blue900, marginBottom: 20 }}>Editar perfil</Text>
+          <TextInput
+            placeholder="Nombres"
+            value={editForm.nombres}
+            onChangeText={(v) => setEditForm({ ...editForm, nombres: v })}
+            style={{ borderWidth: 1, borderColor: colors.gray200, borderRadius: 10, padding: 12, marginBottom: 12, fontFamily: 'Inter_400Regular', fontSize: 15 }}
+          />
+          <TextInput
+            placeholder="Apellidos"
+            value={editForm.apellidos}
+            onChangeText={(v) => setEditForm({ ...editForm, apellidos: v })}
+            style={{ borderWidth: 1, borderColor: colors.gray200, borderRadius: 10, padding: 12, marginBottom: 12, fontFamily: 'Inter_400Regular', fontSize: 15 }}
+          />
+          <TextInput
+            placeholder="Telefono"
+            value={editForm.telefono}
+            onChangeText={(v) => setEditForm({ ...editForm, telefono: v })}
+            keyboardType="phone-pad"
+            style={{ borderWidth: 1, borderColor: colors.gray200, borderRadius: 10, padding: 12, marginBottom: 20, fontFamily: 'Inter_400Regular', fontSize: 15 }}
+          />
+          <AppButton title={editLoading ? 'Guardando...' : 'Guardar cambios'} onPress={handleSubmitEdit} loading={editLoading} disabled={editLoading} fullWidth />
+          <AppButton title="Cancelar" onPress={() => setEditModalVisible(false)} variant="ghost" fullWidth style={{ marginTop: 8 }} />
+        </View>
+      </View>
+    </Modal>
+
+    <Modal visible={passwordModalVisible} transparent animationType="slide">
+      <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.4)' }}>
+        <View style={{ backgroundColor: colors.white, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 24, paddingBottom: 40 }}>
+          <Text style={{ fontFamily: 'Poppins_600SemiBold', fontSize: 18, color: colors.blue900, marginBottom: 20 }}>Cambiar contrasena</Text>
+          <TextInput
+            placeholder="Contrasena actual"
+            value={passwordForm.current}
+            onChangeText={(v) => setPasswordForm({ ...passwordForm, current: v })}
+            secureTextEntry
+            style={{ borderWidth: 1, borderColor: colors.gray200, borderRadius: 10, padding: 12, marginBottom: 12, fontFamily: 'Inter_400Regular', fontSize: 15 }}
+          />
+          <TextInput
+            placeholder="Nueva contrasena"
+            value={passwordForm.newPass}
+            onChangeText={(v) => setPasswordForm({ ...passwordForm, newPass: v })}
+            secureTextEntry
+            style={{ borderWidth: 1, borderColor: colors.gray200, borderRadius: 10, padding: 12, marginBottom: 12, fontFamily: 'Inter_400Regular', fontSize: 15 }}
+          />
+          <TextInput
+            placeholder="Confirmar contrasena"
+            value={passwordForm.confirm}
+            onChangeText={(v) => setPasswordForm({ ...passwordForm, confirm: v })}
+            secureTextEntry
+            style={{ borderWidth: 1, borderColor: colors.gray200, borderRadius: 10, padding: 12, marginBottom: 20, fontFamily: 'Inter_400Regular', fontSize: 15 }}
+          />
+          <AppButton title={passwordLoading ? 'Cambiando...' : 'Cambiar contrasena'} onPress={handleSubmitPassword} loading={passwordLoading} disabled={passwordLoading} fullWidth />
+          <AppButton title="Cancelar" onPress={() => setPasswordModalVisible(false)} variant="ghost" fullWidth style={{ marginTop: 8 }} />
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.gray50 },
-  scrollContent: { paddingTop: 20, paddingBottom: 40 },
+  scrollContent: { paddingTop: 12, paddingBottom: 24 },
 
-  sectionHeader: { paddingTop: 28, paddingHorizontal: 24, paddingBottom: 14 },
-  sectionTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 18, color: colors.blue900 },
+  sectionHeader: { paddingTop: 16, paddingHorizontal: 16, paddingBottom: 8 },
+  sectionTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 15, color: colors.blue900 },
 
   /* HERO */
-  heroCard: { marginHorizontal: 24, borderRadius: radii.lg, padding: 24, ...shadows.sm },
-  heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  heroAvatar: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },
-  heroAvatarText: { fontFamily: 'Poppins_700Bold', fontSize: 24, color: colors.white },
-  heroBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.accentTint, paddingVertical: 5, paddingHorizontal: 10, borderRadius: radii.full },
-  heroBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: colors.accentDark },
-  heroName: { fontFamily: 'Poppins_600SemiBold', fontSize: 22, color: colors.blue900, letterSpacing: -0.2 },
-  heroEmail: { fontFamily: 'Inter_400Regular', fontSize: 14, color: colors.gray600, marginBottom: 14 },
-  heroDetails: { gap: 8, marginBottom: 18 },
-  heroDetailItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  heroDetailText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray600 },
+  heroCard: { marginHorizontal: 16, borderRadius: radii.lg, padding: 14, ...shadows.sm },
+  heroTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  heroAvatar: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  heroAvatarText: { fontFamily: 'Poppins_700Bold', fontSize: 18, color: colors.white },
+  heroBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.accentTint, paddingVertical: 3, paddingHorizontal: 8, borderRadius: radii.full },
+  heroBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: colors.accentDark },
+  heroName: { fontFamily: 'Poppins_600SemiBold', fontSize: 18, color: colors.blue900, letterSpacing: -0.2 },
+  heroEmail: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray600, marginBottom: 10 },
+  heroDetails: { gap: 6, marginBottom: 12 },
+  heroDetailItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  heroDetailText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray600 },
 
   /* ADDRESSES */
-  listCard: { marginHorizontal: 24, borderRadius: radii.lg, overflow: 'hidden', ...shadows.sm },
-  addrItem: { padding: 16 },
-  addrHeader: { flexDirection: 'row', gap: 12 },
-  addrIconWrap: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  listCard: { marginHorizontal: 16, borderRadius: radii.lg, overflow: 'hidden', ...shadows.sm },
+  addrItem: { padding: 10 },
+  addrHeader: { flexDirection: 'row', gap: 8 },
+  addrIconWrap: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   addrInfo: { flex: 1 },
-  addrLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
-  addrLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.blue900 },
-  addrPrimaryBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radii.full },
-  addrPrimaryText: { fontFamily: 'Inter_600SemiBold', fontSize: 10 },
-  addrText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray600 },
-  addrDetails: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray400, marginTop: 2 },
-  addrExtra: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray400, marginTop: 2 },
+  addrLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  addrLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.blue900 },
+  addrPrimaryBadge: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: radii.full },
+  addrPrimaryText: { fontFamily: 'Inter_600SemiBold', fontSize: 9 },
+  addrText: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray600 },
+  addrDetails: { fontFamily: 'Inter_400Regular', fontSize: 10, color: colors.gray400, marginTop: 1 },
+  addrExtra: { fontFamily: 'Inter_400Regular', fontSize: 10, color: colors.gray400, marginTop: 1 },
 
   /* PAYMENT METHODS */
-  pmItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16 },
-  pmIconWrap: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  pmLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.blue900, flex: 1 },
-  pmPreferredBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radii.full },
-  pmPreferredText: { fontFamily: 'Inter_600SemiBold', fontSize: 10 },
-  pmRadio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.gray300, alignItems: 'center', justifyContent: 'center' },
-  pmRadioFill: { width: 10, height: 10, borderRadius: 5 },
+  pmItem: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 12 },
+  pmIconWrap: { width: 32, height: 32, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  pmLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.blue900, flex: 1 },
+  pmPreferredBadge: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: radii.full },
+  pmPreferredText: { fontFamily: 'Inter_600SemiBold', fontSize: 9 },
+  pmRadio: { width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: colors.gray300, alignItems: 'center', justifyContent: 'center' },
+  pmRadioFill: { width: 8, height: 8, borderRadius: 4 },
 
   /* STATISTICS */
-  statsCard: { marginHorizontal: 24, borderRadius: radii.lg, padding: 20, ...shadows.sm },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
-  statItem: { width: '47%', alignItems: 'center', paddingVertical: 12, backgroundColor: colors.gray50, borderRadius: radii.sm },
-  statNumber: { fontFamily: 'Poppins_700Bold', fontSize: 24, color: colors.blue900 },
-  statLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray600, marginTop: 4, textAlign: 'center' },
-  statsTotal: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14, paddingVertical: 12, borderRadius: radii.sm },
-  statsTotalLabel: { fontFamily: 'Inter_500Medium', fontSize: 13, color: colors.gray600 },
-  statsTotalValue: { fontFamily: 'Poppins_700Bold', fontSize: 16 },
+  statsCard: { marginHorizontal: 16, borderRadius: radii.lg, padding: 14, ...shadows.sm },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  statItem: { width: '47%', alignItems: 'center', paddingVertical: 8, backgroundColor: colors.gray50, borderRadius: radii.sm },
+  statNumber: { fontFamily: 'Poppins_700Bold', fontSize: 18, color: colors.blue900 },
+  statLabel: { fontFamily: 'Inter_400Regular', fontSize: 10, color: colors.gray600, marginTop: 2, textAlign: 'center' },
+  statsTotal: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10, paddingVertical: 8, borderRadius: radii.sm },
+  statsTotalLabel: { fontFamily: 'Inter_500Medium', fontSize: 11, color: colors.gray600 },
+  statsTotalValue: { fontFamily: 'Poppins_700Bold', fontSize: 14 },
 
   /* CONFIGURATION */
-  configItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: colors.gray50 },
-  configIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  configLabel: { fontFamily: 'Inter_500Medium', fontSize: 14, color: colors.gray900, flex: 1 },
-  configValue: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray600, marginRight: 4 },
+  configItem: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: colors.gray50 },
+  configIconWrap: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  configLabel: { fontFamily: 'Inter_500Medium', fontSize: 12, color: colors.gray900, flex: 1 },
+  configValue: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray600, marginRight: 4 },
 
   /* SUPPORT */
-  supportItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16 },
-  supportIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  supportItem: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 12 },
+  supportIconWrap: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   supportInfo: { flex: 1 },
-  supportLabel: { fontFamily: 'Inter_500Medium', fontSize: 14, color: colors.gray900 },
-  supportDesc: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray400, marginTop: 1 },
+  supportLabel: { fontFamily: 'Inter_500Medium', fontSize: 12, color: colors.gray900 },
+  supportDesc: { fontFamily: 'Inter_400Regular', fontSize: 10, color: colors.gray400, marginTop: 1 },
 
   /* SECURITY */
-  securityItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16 },
-  securityIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  securityLabel: { fontFamily: 'Inter_500Medium', fontSize: 14, color: colors.gray900 },
-  securityHint: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray400, marginTop: 2 },
+  securityItem: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 12 },
+  securityIconWrap: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
+  securityLabel: { fontFamily: 'Inter_500Medium', fontSize: 12, color: colors.gray900 },
+  securityHint: { fontFamily: 'Inter_400Regular', fontSize: 10, color: colors.gray400, marginTop: 1 },
 
   /* FAQ */
-  faqItem: { paddingVertical: 14, paddingHorizontal: 16 },
+  faqItem: { paddingVertical: 10, paddingHorizontal: 12 },
   faqHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  faqQuestion: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.blue900, flex: 1, marginRight: 8 },
-  faqAnswer: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray600, marginTop: 10, lineHeight: 18 },
+  faqQuestion: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.blue900, flex: 1, marginRight: 6 },
+  faqAnswer: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray600, marginTop: 6, lineHeight: 16 },
 
   /* LOGOUT */
-  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 24, marginTop: 24, paddingVertical: 15, borderRadius: radii.full, ...shadows.sm },
-  logoutText: { fontFamily: 'Inter_600SemiBold', fontSize: 14 },
+  logoutBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginHorizontal: 16, marginTop: 16, paddingVertical: 10, borderRadius: radii.full, ...shadows.sm },
+  logoutText: { fontFamily: 'Inter_600SemiBold', fontSize: 12 },
 
   /* APP INFO */
-  appInfoCard: { marginHorizontal: 24, marginTop: 24, borderRadius: radii.lg, padding: 24, alignItems: 'center', gap: 4, ...shadows.sm },
-  appInfoName: { fontFamily: 'Poppins_600SemiBold', fontSize: 16, color: colors.blue900 },
-  appInfoVersion: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray400 },
-  appInfoCopyright: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray400, textAlign: 'center', lineHeight: 16, marginTop: 4 },
+  appInfoCard: { marginHorizontal: 16, marginTop: 16, borderRadius: radii.lg, padding: 14, alignItems: 'center', gap: 3, ...shadows.sm },
+  appInfoName: { fontFamily: 'Poppins_600SemiBold', fontSize: 13, color: colors.blue900 },
+  appInfoVersion: { fontFamily: 'Inter_400Regular', fontSize: 10, color: colors.gray400 },
+  appInfoCopyright: { fontFamily: 'Inter_400Regular', fontSize: 9, color: colors.gray400, textAlign: 'center', lineHeight: 14, marginTop: 2 },
 });

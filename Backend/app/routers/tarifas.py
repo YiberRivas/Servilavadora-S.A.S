@@ -34,11 +34,15 @@ async def list_tarifas(
     result = await db.execute(query)
     tarifas = result.scalars().all()
 
+    cap_ids = list({t.id_capacidad_lavadora for t in tarifas if t.id_capacidad_lavadora})
+    cap_map = {}
+    if cap_ids:
+        cap_q = select(CapacidadLavadora).where(CapacidadLavadora.id_capacidad_lavadora.in_(cap_ids))
+        cap_map = {c.id_capacidad_lavadora: c for c in (await db.execute(cap_q)).scalars().all()}
+
     data = []
     for t in tarifas:
-        cap = (await db.execute(
-            select(CapacidadLavadora).where(CapacidadLavadora.id_capacidad_lavadora == t.id_capacidad_lavadora)
-        )).scalar_one_or_none()
+        cap = cap_map.get(t.id_capacidad_lavadora)
         data.append({
             "uuid": t.uuid, "id_empresa": t.id_empresa,
             "id_capacidad_lavadora": t.id_capacidad_lavadora,

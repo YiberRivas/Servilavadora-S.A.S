@@ -1,54 +1,62 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
-  LayoutDashboard, Building2, ShieldCheck, Users, CreditCard,
-  BarChart3, Settings, LogOut, ChevronLeft,
-  TrendingUp, Home, Shield
+  Building2, ShieldCheck, Users, CreditCard,
+  Settings, LogOut, ChevronLeft,
+  TrendingUp, Home
 } from 'lucide-react'
 import { useAuth } from '../context/AuthContext'
+import { api } from '../services/api'
 import styles from '../styles/components/Aside.module.css'
-
-const navSections = [
-  {
-    label: 'Principal',
-    items: [
-      { to: '/admin', icon: Home, label: 'Dashboard', end: true },
-    ]
-  },
-  {
-    label: 'Gestion de Empresas',
-    items: [
-      { to: '/admin/empresas', icon: Building2, label: 'Empresas' },
-      { to: '/admin/aprobar', icon: ShieldCheck, label: 'Empresas Pendientes', badge: 3, badgeType: 'warning' },
-      { to: '/admin/planes', icon: CreditCard, label: 'Planes y Suscripciones' },
-    ]
-  },
-  {
-    label: 'Administracion',
-    items: [
-      { to: '/admin/usuarios', icon: Users, label: 'Usuarios' },
-      { to: '/admin/estadisticas', icon: TrendingUp, label: 'Estadisticas Globales' },
-    ]
-  },
-  {
-    label: 'Sistema',
-    items: [
-      { to: '/admin/configuraciones', icon: Settings, label: 'Configuracion' },
-    ]
-  },
-]
 
 export default function Aside({ isOpen, onClose, onCollapsedChange }) {
   const { logout } = useAuth()
   const [collapsed, setCollapsed] = useState(() => {
     return localStorage.getItem('sidebar-collapsed') === 'true'
   })
+  const [pendingCount, setPendingCount] = useState(0)
   const navigate = useNavigate()
+
+  const navSections = [
+    {
+      label: 'Principal',
+      items: [
+        { to: '/admin', icon: Home, label: 'Dashboard', end: true },
+      ]
+    },
+    {
+      label: 'Gestion de Empresas',
+      items: [
+        { to: '/admin/empresas', icon: Building2, label: 'Empresas' },
+        { to: '/admin/aprobar', icon: ShieldCheck, label: 'Empresas Pendientes', badge: pendingCount || null, badgeType: 'warning' },
+        { to: '/admin/planes', icon: CreditCard, label: 'Planes y Suscripciones' },
+      ]
+    },
+    {
+      label: 'Administracion',
+      items: [
+        { to: '/admin/usuarios', icon: Users, label: 'Usuarios' },
+        { to: '/admin/estadisticas', icon: TrendingUp, label: 'Estadisticas Globales' },
+      ]
+    },
+    {
+      label: 'Sistema',
+      items: [
+        { to: '/admin/configuraciones', icon: Settings, label: 'Configuracion' },
+      ]
+    },
+  ]
 
   useEffect(() => {
     localStorage.setItem('sidebar-collapsed', collapsed)
     onCollapsedChange?.(collapsed)
   }, [collapsed, onCollapsedChange])
+
+  useEffect(() => {
+    api.get('/empresas/pendientes?per_page=1')
+      .then(res => setPendingCount(res.total || 0))
+      .catch(() => {})
+  }, [])
 
   const handleToggleCollapse = () => {
     setCollapsed(prev => !prev)

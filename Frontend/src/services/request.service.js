@@ -59,4 +59,19 @@ export const requestService = {
     const response = await apiClient.put(`${endpoints.alquileres.list}/${uuid}`, requestData);
     return response.data;
   },
+
+  async solicitarFinalizacion(uuid) {
+    const { data } = await apiClient.post(endpoints.alquileres.solicitarFinalizacion(uuid));
+    return data;
+  },
+
+  async aceptarSolicitud(uuid) {
+    const { data } = await apiClient.post(endpoints.alquileres.aceptarSolicitud(uuid));
+    return data;
+  },
+
+  async rechazarSolicitud(uuid) {
+    const { data } = await apiClient.post(endpoints.alquileres.rechazarSolicitud(uuid));
+    return data;
+  },
 };

@@ -53,21 +53,34 @@ async def list_empresas(
     query = query.order_by(Empresa.created_at.desc())
     query = query.offset((page - 1) * per_page).limit(per_page)
     result = await db.execute(query)
-    empresas = result.scalars().all()
+    empresas = result.scalars().unique().all()
+
+    empresa_ids = [e.id_empresa for e in empresas]
+
+    sub_q = (
+        select(Suscripcion)
+        .options(selectinload(Suscripcion.plan))
+        .where(Suscripcion.id_empresa.in_(empresa_ids), Suscripcion.activa == 1)
+        .order_by(Suscripcion.created_at.desc())
+    )
+    all_subs = (await db.execute(sub_q)).scalars().all()
+    subs_by_empresa = {}
+    for s in all_subs:
+        if s.id_empresa not in subs_by_empresa:
+            subs_by_empresa[s.id_empresa] = s
+
+    pagos_q = (
+        select(PagoEmpresa.id_empresa, func.count().label("cnt"))
+        .where(PagoEmpresa.id_empresa.in_(empresa_ids))
+        .group_by(PagoEmpresa.id_empresa)
+    )
+    pagos_rows = (await db.execute(pagos_q)).all()
+    pagos_map = {r.id_empresa: r.cnt for r in pagos_rows}
 
     data = []
     for e in empresas:
-        suscripcion_result = await db.execute(
-            select(Suscripcion).options(selectinload(Suscripcion.plan)).where(
-                Suscripcion.id_empresa == e.id_empresa,
-                Suscripcion.activa == 1,
-            ).order_by(Suscripcion.created_at.desc()).limit(1)
-        )
-        suscripcion = suscripcion_result.scalar_one_or_none()
-
-        pagos_count = (await db.execute(
-            select(func.count()).where(PagoEmpresa.id_empresa == e.id_empresa)
-        )).scalar() or 0
+        suscripcion = subs_by_empresa.get(e.id_empresa)
+        pagos_count = pagos_map.get(e.id_empresa, 0)
 
         data.append({
             "uuid": e.uuid,
@@ -384,12 +397,15 @@ async def list_pagos_empresa(
     query = query.order_by(PagoEmpresa.created_at.desc())
     query = query.offset((page - 1) * per_page).limit(per_page)
     result = await db.execute(query)
-    pagos = result.scalars().all()
+    pagos = result.scalars().unique().all()
+
+    empresa_ids = list({pg.id_empresa for pg in pagos})
+    emp_q = select(Empresa).where(Empresa.id_empresa.in_(empresa_ids))
+    empresas_map = {e.id_empresa: e for e in (await db.execute(emp_q)).scalars().all()}
 
     data = []
     for pg in pagos:
-        empresa = await db.execute(select(Empresa).where(Empresa.id_empresa == pg.id_empresa))
-        emp = empresa.scalar_one_or_none()
+        emp = empresas_map.get(pg.id_empresa)
         data.append({
             "uuid": pg.uuid,
             "id_empresa": pg.id_empresa,

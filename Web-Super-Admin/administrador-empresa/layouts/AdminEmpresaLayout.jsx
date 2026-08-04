@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { Menu, Bell, ChevronDown, User, Settings, LogOut } from 'lucide-react'
+import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { Menu, Bell, ChevronDown, LogOut } from 'lucide-react'
 import { useAuth } from '../../src/context/AuthContext'
 import { api } from '../../src/services/api'
 import AsideEmpresa from '../components/AsideEmpresa'
@@ -97,9 +97,15 @@ export default function AdminEmpresaLayout() {
           </div>
 
           <div className={styles.topbarRight}>
-            <button className={styles.iconBtn} aria-label="Notificaciones">
+            <button className={styles.iconBtn} aria-label="Notificaciones" onClick={() => navigate('/administrador-empresa/notificaciones')}>
               <Bell width={18} height={18} />
-              {notifCount > 0 && <span className={styles.notifBadge}>{notifCount}</span>}
+              {notifCount > 0 && <span style={{
+                position: 'absolute', top: 2, right: 2, minWidth: 16, height: 16,
+                borderRadius: 8, background: 'var(--danger)', color: '#fff',
+                fontSize: '0.6rem', fontWeight: 700, display: 'flex',
+                alignItems: 'center', justifyContent: 'center', padding: '0 4px',
+                border: '2px solid var(--white)',
+              }}>{notifCount}</span>}
             </button>
 
             <div className={styles.profileWrapper} ref={profileRef}>
@@ -116,13 +122,9 @@ export default function AdminEmpresaLayout() {
               </button>
 
               <div className={`${styles.profileDropdown} ${profileOpen ? styles.profileDropdownOpen : ''}`}>
-                <button className={styles.dropdownItem} onClick={() => { setProfileOpen(false); navigate('/administrador-empresa') }}>
-                  <User width={15} height={15} />
-                  Mi perfil
-                </button>
-                <button className={styles.dropdownItem} onClick={() => { setProfileOpen(false); navigate('/administrador-empresa') }}>
-                  <Settings width={15} height={15} />
-                  Configuracion
+                <button className={styles.dropdownItem} onClick={() => { setProfileOpen(false); navigate('/administrador-empresa/notificaciones') }}>
+                  <Bell width={15} height={15} />
+                  Notificaciones
                 </button>
                 <button className={styles.dropdownItem} onClick={handleLogout}>
                   <LogOut width={15} height={15} />

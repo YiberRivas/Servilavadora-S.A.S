@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
+from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.base import (
     Usuario, Lavadora, EstadoLavadora, MarcaLavadora, ModeloLavadora,
@@ -8,7 +9,7 @@ from app.models.base import (
     Empresa, Sucursal,
 )
 from app.schemas.common import ApiResponse, PaginatedResponse
-from app.dependencies import require_role
+from app.dependencies import require_role, get_admin_empresa_id
 from app.utils.logging import get_logger
 from math import ceil
 
@@ -24,9 +25,11 @@ async def list_lavadoras(
     id_capacidad: int = Query(None),
     page: int = Query(1, ge=1),
     per_page: int = Query(20, ge=1, le=100),
-    current_user: Usuario = Depends(require_role("SUPER_ADMIN")),
+    current_user: Usuario = Depends(require_role("SUPER_ADMIN", "ADMIN_EMPRESA")),
     db: AsyncSession = Depends(get_db),
 ):
+    empresa_id = await get_admin_empresa_id(db, current_user)
+
     query = (
         select(Lavadora)
         .join(Empresa, Lavadora.id_empresa == Empresa.id_empresa)
@@ -34,8 +37,20 @@ async def list_lavadoras(
         .join(MarcaLavadora, Lavadora.id_marca_lavadora == MarcaLavadora.id_marca_lavadora)
         .join(ModeloLavadora, Lavadora.id_modelo_lavadora == ModeloLavadora.id_modelo_lavadora)
         .join(CapacidadLavadora, Lavadora.id_capacidad_lavadora == CapacidadLavadora.id_capacidad_lavadora)
+        .options(
+            selectinload(Lavadora.empresa),
+            selectinload(Lavadora.sucursal),
+            selectinload(Lavadora.marca),
+            selectinload(Lavadora.modelo),
+            selectinload(Lavadora.capacidad),
+            selectinload(Lavadora.estado_lavadora_rel),
+        )
     )
 
+    if empresa_id is not None:
+        query = query.where(Lavadora.id_empresa == empresa_id)
+    elif id_empresa:
+        query = query.where(Lavadora.id_empresa == id_empresa)
     if search:
         search_term = f"%{search}%"
         query = query.where(
@@ -45,8 +60,6 @@ async def list_lavadoras(
                 Empresa.razon_social.ilike(search_term),
             )
         )
-    if id_empresa:
-        query = query.where(Lavadora.id_empresa == id_empresa)
     if id_estado:
         query = query.where(Lavadora.id_estado_lavadora == id_estado)
     if id_capacidad:
@@ -58,12 +71,13 @@ async def list_lavadoras(
     query = query.order_by(Lavadora.created_at.desc())
     query = query.offset((page - 1) * per_page).limit(per_page)
     result = await db.execute(query)
-    lavadoras = result.scalars().all()
+    lavadoras = result.unique().scalars().all()
 
     data = []
     for l in lavadoras:
         data.append({
             "uuid": l.uuid,
+            "codigo": l.codigo_interno,
             "codigo_interno": l.codigo_interno,
             "numero_serie": l.numero_serie,
             "color": l.color,
@@ -76,6 +90,7 @@ async def list_lavadoras(
             "marca_nombre": l.marca.nombre if l.marca else "",
             "modelo_nombre": l.modelo.nombre if l.modelo else "",
             "capacidad_kg": float(l.capacidad.capacidad_kg) if l.capacidad else 0,
+            "capacidad_valor": float(l.capacidad.capacidad_kg) if l.capacidad else 0,
             "estado_nombre": l.estado_lavadora_rel.nombre if l.estado_lavadora_rel else "",
             "estado_color": l.estado_lavadora_rel.color if l.estado_lavadora_rel else "",
         })

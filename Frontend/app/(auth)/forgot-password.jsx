@@ -4,21 +4,30 @@ import { Text, useTheme, Snackbar, Icon } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import AppInput from '../../src/components/ui/AppInput';
 import AppButton from '../../src/components/ui/AppButton';
+import { authService } from '../../src/services/auth.service';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const [email, setEmail] = useState('');
   const [sent, setSent] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [snackbar, setSnackbar] = useState({ visible: false, message: '' });
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!email) {
       setSnackbar({ visible: true, message: 'Ingresa tu correo electronico' });
       return;
     }
-    // TODO: Conectar a endpoint de recuperacion cuando este disponible en backend
-    setSnackbar({ visible: true, message: 'Esta funcionalidad no esta disponible aun. Contacta al administrador.' });
+    setLoading(true);
+    try {
+      await authService.forgotPassword(email);
+      setSent(true);
+    } catch (err) {
+      setSnackbar({ visible: true, message: err.message || 'Error al enviar instrucciones' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -48,7 +57,7 @@ export default function ForgotPasswordScreen() {
               keyboardType="email-address"
               autoCapitalize="none"
             />
-            <AppButton title="Enviar instrucciones" onPress={handleSend} />
+            <AppButton title="Enviar instrucciones" onPress={handleSend} loading={loading} disabled={loading} icon="email-outline" />
             <View style={styles.backLink}>
               <Text variant="bodyMedium" style={{ color: colors.primary, fontWeight: '600' }} onPress={() => router.back()}>
                 Volver al inicio de sesión
@@ -57,7 +66,7 @@ export default function ForgotPasswordScreen() {
           </View>
         ) : (
           <View style={styles.form}>
-            <AppButton title="Volver al inicio de sesión" onPress={() => router.replace('/(auth)/login')} />
+            <AppButton title="Volver al inicio de sesion" onPress={() => router.replace('/(auth)/login')} icon="arrow-left" />
           </View>
         )}
       </ScrollView>

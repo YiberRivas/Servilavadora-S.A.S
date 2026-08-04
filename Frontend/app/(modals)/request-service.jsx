@@ -4,7 +4,7 @@ import { Text, Icon } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { formatCurrency } from '../../src/utils/formatters';
 import { colors, radii, shadows } from '../../src/theme';
-import { companiesService } from '../../src/services';
+import { companiesService } from '../../src/services/companies.service';
 import { requestService } from '../../src/services/request.service';
 import AppButton from '../../src/components/ui/AppButton';
 
@@ -201,15 +201,25 @@ export default function RequestServiceScreen() {
     return Object.keys(newErrors).length === 0;
   }, [selectedCapacity, finalAddress, selectedDate, selectedTime, observations]);
 
-  const handleNext = useCallback(() => {
-    if (!validateStep(step)) return;
-    if (step === STEPS.length - 2) {
-      handleSubmit();
-      return;
+  const handleSubmit = useCallback(async () => {
+    if (!company || !selectedCapacity || !finalAddress || !selectedDate || !selectedTime) return;
+    setIsSubmitting(true);
+    try {
+      const fechaProgramada = `${selectedDate.full}T${selectedTime}:00`;
+      await requestService.createSolicitud({
+        empresa_uuid: company.id,
+        capacidad_kg: selectedCapacity.kg,
+        fecha_programada: fechaProgramada,
+        direccion_entrega: finalAddress + (finalAddressDetails ? `, ${finalAddressDetails}` : ''),
+        observaciones: observations,
+      });
+      setConfirmed(true);
+    } catch (err) {
+      Alert.alert('Error', err.message || 'No se pudo crear la solicitud');
+    } finally {
+      setIsSubmitting(false);
     }
-    Keyboard.dismiss();
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
-  }, [step, validateStep, handleSubmit]);
+  }, [company, selectedCapacity, finalAddress, finalAddressDetails, selectedDate, selectedTime, observations]);
 
   const handleBack = useCallback(() => {
     if (confirmed) {
@@ -230,25 +240,15 @@ export default function RequestServiceScreen() {
     setStep(targetStep);
   }, [clearErrors]);
 
-  const handleSubmit = useCallback(async () => {
-    if (!company || !selectedCapacity || !finalAddress || !selectedDate || !selectedTime) return;
-    setIsSubmitting(true);
-    try {
-      const fechaProgramada = `${selectedDate.full}T${selectedTime}:00`;
-      await requestService.createSolicitud({
-        empresa_uuid: company.id,
-        capacidad_kg: selectedCapacity.kg,
-        fecha_programada: fechaProgramada,
-        direccion_entrega: finalAddress + (finalAddressDetails ? `, ${finalAddressDetails}` : ''),
-        observaciones: observations,
-      });
-      setConfirmed(true);
-    } catch (err) {
-      Alert.alert('Error', err.message || 'No se pudo crear la solicitud');
-    } finally {
-      setIsSubmitting(false);
+  const handleNext = useCallback(() => {
+    if (!validateStep(step)) return;
+    if (step === STEPS.length - 2) {
+      handleSubmit();
+      return;
     }
-  }, [company, selectedCapacity, finalAddress, finalAddressDetails, selectedDate, selectedTime, observations]);
+    Keyboard.dismiss();
+    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+  }, [step, validateStep, handleSubmit]);
 
   if (isLoadingCompany) {
     return (
@@ -274,7 +274,7 @@ export default function RequestServiceScreen() {
       <View style={styles.center}>
         <Icon source="alert-circle-outline" size={48} color={colors.gray300} />
         <Text style={styles.centerText}>Empresa no encontrada</Text>
-        <AppButton title="Volver" onPress={() => router.back()} variant="outline" />
+        <AppButton title="Volver" onPress={() => router.back()} variant="outline" icon="arrow-left" />
       </View>
     );
   }
@@ -766,141 +766,141 @@ const styles = StyleSheet.create({
   center: { justifyContent: 'center', alignItems: 'center', gap: 12 },
   centerText: { fontFamily: 'Inter_400Regular', fontSize: 16, color: colors.gray600 },
 
-  header: { paddingTop: Platform.OS === 'ios' ? 56 : 20, paddingHorizontal: 16, paddingBottom: 0, ...shadows.sm },
-  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  headerBack: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 16, color: colors.blue900, flex: 1, textAlign: 'center' },
+  header: { paddingTop: Platform.OS === 'ios' ? 48 : 16, paddingHorizontal: 16, paddingBottom: 0, ...shadows.sm },
+  headerTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  headerBack: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 15, color: colors.blue900, flex: 1, textAlign: 'center' },
 
-  stepper: { paddingHorizontal: 24, marginBottom: 8 },
-  stepperTrack: { height: 4, backgroundColor: colors.gray100, borderRadius: 2 },
+  stepper: { paddingHorizontal: 20, marginBottom: 4 },
+  stepperTrack: { height: 3, backgroundColor: colors.gray100, borderRadius: 2 },
   stepperFill: { height: '100%', backgroundColor: colors.accent, borderRadius: 2 },
 
-  stepLabels: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 28, paddingVertical: 12 },
-  stepLabelItem: { alignItems: 'center', gap: 4, width: 60 },
-  stepDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.gray100 },
-  stepDotActive: { width: 10, height: 10, borderRadius: 5, ...shadows.sm },
-  stepLabelText: { fontFamily: 'Inter_400Regular', fontSize: 9, color: colors.gray400, textAlign: 'center' },
+  stepLabels: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 24, paddingVertical: 8 },
+  stepLabelItem: { alignItems: 'center', gap: 3, width: 56 },
+  stepDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.gray100 },
+  stepDotActive: { width: 9, height: 9, borderRadius: 5, ...shadows.sm },
+  stepLabelText: { fontFamily: 'Inter_400Regular', fontSize: 8, color: colors.gray400, textAlign: 'center' },
 
   scroll: { flex: 1 },
   scrollContent: { paddingBottom: 100 },
 
-  stepContent: { paddingHorizontal: 24, paddingTop: 8 },
-  stepTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 20, color: colors.blue900, marginBottom: 6, letterSpacing: -0.2 },
-  stepSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 14, color: colors.gray600, marginBottom: 20 },
+  stepContent: { paddingHorizontal: 16, paddingTop: 4 },
+  stepTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 17, color: colors.blue900, marginBottom: 4, letterSpacing: -0.2 },
+  stepSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray600, marginBottom: 14 },
 
-  companySummary: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.white, padding: 14, borderRadius: radii.md, marginBottom: 16, ...shadows.sm },
-  companyLogo: { width: 48, height: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
-  companyLogoText: { fontFamily: 'Poppins_600SemiBold', fontSize: 18, color: colors.white },
+  companySummary: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.white, padding: 10, borderRadius: radii.md, marginBottom: 12, ...shadows.sm },
+  companyLogo: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  companyLogoText: { fontFamily: 'Poppins_600SemiBold', fontSize: 16, color: colors.white },
   companyInfo: { flex: 1 },
-  companyName: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.blue900, marginBottom: 2 },
-  companyRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  companyRating: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.blue900 },
-  companyReviews: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray400 },
+  companyName: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.blue900, marginBottom: 1 },
+  companyRatingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  companyRating: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: colors.blue900 },
+  companyReviews: { fontFamily: 'Inter_400Regular', fontSize: 10, color: colors.gray400 },
 
-  capacityList: { gap: 12 },
-  capacityCard: { borderRadius: radii.md, padding: 14, ...shadows.sm },
+  capacityList: { gap: 8 },
+  capacityCard: { borderRadius: radii.md, padding: 10, ...shadows.sm },
   capacityCardSelected: { borderWidth: 1.5, borderColor: colors.accent },
-  capacityTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
-  capacityIconWrap: { width: 44, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  capacityTop: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
+  capacityIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   capacityInfo: { flex: 1 },
-  capacityType: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.blue900, marginBottom: 2 },
-  capacityKg: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray600 },
-  capacityRadio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.gray300, alignItems: 'center', justifyContent: 'center' },
-  capacityRadioFill: { width: 10, height: 10, borderRadius: 5 },
+  capacityType: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.blue900, marginBottom: 1 },
+  capacityKg: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray600 },
+  capacityRadio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: colors.gray300, alignItems: 'center', justifyContent: 'center' },
+  capacityRadioFill: { width: 8, height: 8, borderRadius: 4 },
   capacityBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  capacityPriceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 4 },
-  capacityPrice: { fontFamily: 'Poppins_600SemiBold', fontSize: 18, color: colors.accent },
-  capacityPriceUnit: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray600 },
-  capacityAvailRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  capacityAvailDot: { width: 6, height: 6, borderRadius: 3 },
-  capacityAvailText: { fontFamily: 'Inter_500Medium', fontSize: 11, color: colors.accentDark },
+  capacityPriceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 3 },
+  capacityPrice: { fontFamily: 'Poppins_600SemiBold', fontSize: 15, color: colors.accent },
+  capacityPriceUnit: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray600 },
+  capacityAvailRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  capacityAvailDot: { width: 5, height: 5, borderRadius: 3 },
+  capacityAvailText: { fontFamily: 'Inter_500Medium', fontSize: 10, color: colors.accentDark },
 
-  savedAddrCard: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: radii.md, padding: 14, marginBottom: 10, ...shadows.sm },
+  savedAddrCard: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: radii.md, padding: 10, marginBottom: 8, ...shadows.sm },
   savedAddrSelected: { borderWidth: 1.5, borderColor: colors.accent },
-  addrIconWrap: { width: 42, height: 42, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  addrIconWrap: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   addrInfo: { flex: 1 },
-  addrLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.blue900 },
-  addrText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray600, marginTop: 1 },
-  addrDetails: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray400, marginTop: 2 },
-  addrRadio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: colors.gray300, alignItems: 'center', justifyContent: 'center' },
-  addrRadioFill: { width: 10, height: 10, borderRadius: 5 },
-  addCustomBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 12, paddingHorizontal: 14, borderRadius: radii.md, marginBottom: 10 },
-  addCustomText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.accent },
-  customAddrWrap: { borderRadius: radii.md, padding: 14, ...shadows.sm },
-  customAddrLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.blue900, marginBottom: 8 },
-  customAddrInput: { height: 48, borderWidth: 1, borderRadius: radii.sm, paddingHorizontal: 14, fontFamily: 'Inter_400Regular', fontSize: 14 },
+  addrLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.blue900 },
+  addrText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray600, marginTop: 1 },
+  addrDetails: { fontFamily: 'Inter_400Regular', fontSize: 10, color: colors.gray400, marginTop: 1 },
+  addrRadio: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: colors.gray300, alignItems: 'center', justifyContent: 'center' },
+  addrRadioFill: { width: 8, height: 8, borderRadius: 4 },
+  addCustomBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8, paddingHorizontal: 12, borderRadius: radii.md, marginBottom: 8 },
+  addCustomText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.accent },
+  customAddrWrap: { borderRadius: radii.md, padding: 12, ...shadows.sm },
+  customAddrLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.blue900, marginBottom: 6 },
+  customAddrInput: { height: 40, borderWidth: 1, borderRadius: radii.sm, paddingHorizontal: 12, fontFamily: 'Inter_400Regular', fontSize: 13 },
 
-  todayBanner: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 14, paddingHorizontal: 16, borderRadius: radii.md, marginBottom: 20 },
+  todayBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 14, borderRadius: radii.md, marginBottom: 14 },
   todayInfo: { flex: 1 },
-  todayLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.accentDark },
-  todayDate: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.accentDark, marginTop: 2 },
+  todayLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.accentDark },
+  todayDate: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.accentDark, marginTop: 1 },
 
-  sectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.blue900, marginBottom: 10 },
+  sectionLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.blue900, marginBottom: 8 },
 
-  dateSection: { marginBottom: 20 },
-  dateGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  dateCard: { width: (SCREEN_WIDTH - 48 - 32) / 5, borderRadius: radii.sm, paddingVertical: 10, alignItems: 'center', gap: 3, ...shadows.sm, position: 'relative' },
+  dateSection: { marginBottom: 14 },
+  dateGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  dateCard: { width: (SCREEN_WIDTH - 48 - 24) / 5, borderRadius: radii.sm, paddingVertical: 8, alignItems: 'center', gap: 2, ...shadows.sm, position: 'relative' },
   dateCardSelected: { backgroundColor: colors.accent },
-  dateDay: { fontFamily: 'Inter_500Medium', fontSize: 10, color: colors.gray400 },
-  dateNum: { fontFamily: 'Poppins_700Bold', fontSize: 18, color: colors.blue900 },
-  dateMonth: { fontFamily: 'Inter_400Regular', fontSize: 9, color: colors.gray400 },
-  dateBadge: { position: 'absolute', top: -4, right: -4, backgroundColor: colors.accent, paddingHorizontal: 4, paddingVertical: 1, borderRadius: 4 },
-  dateBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 7, color: colors.white },
+  dateDay: { fontFamily: 'Inter_500Medium', fontSize: 9, color: colors.gray400 },
+  dateNum: { fontFamily: 'Poppins_700Bold', fontSize: 16, color: colors.blue900 },
+  dateMonth: { fontFamily: 'Inter_400Regular', fontSize: 8, color: colors.gray400 },
+  dateBadge: { position: 'absolute', top: -3, right: -3, backgroundColor: colors.accent, paddingHorizontal: 3, paddingVertical: 1, borderRadius: 3 },
+  dateBadgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 6, color: colors.white },
 
-  timeSection: { marginBottom: 20 },
-  timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  timeCard: { width: (SCREEN_WIDTH - 48 - 32) / 3, paddingVertical: 14, borderRadius: radii.sm, alignItems: 'center', ...shadows.sm, position: 'relative' },
+  timeSection: { marginBottom: 14 },
+  timeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  timeCard: { width: (SCREEN_WIDTH - 48 - 24) / 3, paddingVertical: 10, borderRadius: radii.sm, alignItems: 'center', ...shadows.sm, position: 'relative' },
   timeCardSelected: { backgroundColor: colors.accent },
   timeCardOccupied: { backgroundColor: colors.gray50, opacity: 0.8 },
-  timeText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.blue900 },
-  timeOccupiedBadge: { position: 'absolute', top: 2, right: 4 },
-  timeOccupiedText: { fontFamily: 'Inter_500Medium', fontSize: 7, color: colors.gray400, textTransform: 'uppercase', letterSpacing: 0.3 },
+  timeText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.blue900 },
+  timeOccupiedBadge: { position: 'absolute', top: 2, right: 3 },
+  timeOccupiedText: { fontFamily: 'Inter_500Medium', fontSize: 6, color: colors.gray400, textTransform: 'uppercase', letterSpacing: 0.3 },
 
-  paymentSection: { marginBottom: 20 },
-  paymentNote: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray400, marginBottom: 12, marginTop: -6 },
-  paymentGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  paymentCard: { width: (SCREEN_WIDTH - 48 - 24) / 2, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 14, paddingHorizontal: 14, borderRadius: radii.sm, ...shadows.sm },
+  paymentSection: { marginBottom: 14 },
+  paymentNote: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray400, marginBottom: 8, marginTop: -4 },
+  paymentGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  paymentCard: { width: (SCREEN_WIDTH - 48 - 18) / 2, flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 10, paddingHorizontal: 10, borderRadius: radii.sm, ...shadows.sm },
   paymentCardSelected: { borderWidth: 1.5, borderColor: colors.accent },
-  paymentLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.gray600 },
+  paymentLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.gray600 },
 
-  summaryCard: { borderRadius: radii.lg, padding: 20, gap: 0, ...shadows.md },
-  summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
-  summaryIcon: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
-  summaryIconText: { fontFamily: 'Poppins_700Bold', fontSize: 18, color: colors.white },
-  summaryIconSm: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  summaryCard: { borderRadius: radii.lg, padding: 14, gap: 0, ...shadows.md },
+  summaryRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 },
+  summaryIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center' },
+  summaryIconText: { fontFamily: 'Poppins_700Bold', fontSize: 15, color: colors.white },
+  summaryIconSm: { width: 30, height: 30, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   summaryInfo: { flex: 1 },
-  summaryLabel: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray400, marginBottom: 1 },
-  summaryValue: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.blue900 },
-  summaryDesc: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray600, marginTop: 2 },
+  summaryLabel: { fontFamily: 'Inter_400Regular', fontSize: 10, color: colors.gray400, marginBottom: 1 },
+  summaryValue: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.blue900 },
+  summaryDesc: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray600, marginTop: 1 },
   summaryDivider: { height: 1 },
-  summaryDouble: { flexDirection: 'row', gap: 16, paddingVertical: 12, alignItems: 'center' },
-  summaryDoubleItem: { flex: 1, flexDirection: 'row', gap: 10, alignItems: 'center' },
+  summaryDouble: { flexDirection: 'row', gap: 12, paddingVertical: 8, alignItems: 'center' },
+  summaryDoubleItem: { flex: 1, flexDirection: 'row', gap: 8, alignItems: 'center' },
 
-  observationSection: { marginTop: 16 },
-  observationInput: { borderWidth: 1, borderRadius: radii.md, padding: 14, fontFamily: 'Inter_400Regular', fontSize: 14, minHeight: 100, textAlignVertical: 'top' },
-  observationCount: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.gray400, textAlign: 'right', marginTop: 4 },
+  observationSection: { marginTop: 10 },
+  observationInput: { borderWidth: 1, borderRadius: radii.md, padding: 10, fontFamily: 'Inter_400Regular', fontSize: 13, minHeight: 80, textAlignVertical: 'top' },
+  observationCount: { fontFamily: 'Inter_400Regular', fontSize: 10, color: colors.gray400, textAlign: 'right', marginTop: 3 },
 
   errorText: { fontFamily: 'Inter_500Medium', fontSize: 12, color: colors.error, marginTop: 8 },
 
-  bottomNav: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 24, paddingTop: 12, paddingBottom: Platform.OS === 'ios' ? 32 : 12, borderTopWidth: 0.5, borderTopColor: colors.gray100 },
-  bottomNavInner: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 14, paddingHorizontal: 12 },
-  backBtnText: { fontFamily: 'Inter_500Medium', fontSize: 14, color: colors.gray600 },
-  nextBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 15, borderRadius: radii.full },
-  nextBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: colors.white },
+  bottomNav: { position: 'absolute', bottom: 0, left: 0, right: 0, paddingHorizontal: 16, paddingTop: 8, paddingBottom: Platform.OS === 'ios' ? 24 : 8, borderTopWidth: 0.5, borderTopColor: colors.gray100 },
+  bottomNavInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  backBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 10, paddingHorizontal: 10 },
+  backBtnText: { fontFamily: 'Inter_500Medium', fontSize: 13, color: colors.gray600 },
+  nextBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: radii.full },
+  nextBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.white },
 
-  confirmedWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 32, gap: 20 },
-  confirmedCircle: { width: 88, height: 88, borderRadius: 44, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
-  confirmedTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 22, color: colors.blue900, textAlign: 'center', lineHeight: 28, letterSpacing: -0.2 },
-  confirmedSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 15, color: colors.gray600, textAlign: 'center', lineHeight: 20 },
-  confirmedDesc: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray400, textAlign: 'center', lineHeight: 18 },
+  confirmedWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24, gap: 16 },
+  confirmedCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+  confirmedTitle: { fontFamily: 'Poppins_600SemiBold', fontSize: 18, color: colors.blue900, textAlign: 'center', lineHeight: 24, letterSpacing: -0.2 },
+  confirmedSubtitle: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.gray600, textAlign: 'center', lineHeight: 18 },
+  confirmedDesc: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.gray400, textAlign: 'center', lineHeight: 16 },
   confirmedDetails: { width: '100%' },
-  confirmedDetailCard: { borderRadius: radii.md, padding: 16, gap: 10 },
-  confirmedDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  confirmedDetailText: { fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.blue900, flex: 1 },
-  confirmedActions: { width: '100%', gap: 12 },
-  confirmedBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: radii.full },
-  confirmedBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 16, color: colors.white },
-  confirmedBtnSecondary: { alignItems: 'center', paddingVertical: 14, borderRadius: radii.full, borderWidth: 1 },
-  confirmedBtnSecondaryText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.gray600 },
+  confirmedDetailCard: { borderRadius: radii.md, padding: 12, gap: 8 },
+  confirmedDetailRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  confirmedDetailText: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.blue900, flex: 1 },
+  confirmedActions: { width: '100%', gap: 8 },
+  confirmedBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: radii.full },
+  confirmedBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.white },
+  confirmedBtnSecondary: { alignItems: 'center', paddingVertical: 10, borderRadius: radii.full, borderWidth: 1 },
+  confirmedBtnSecondaryText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.gray600 },
 });

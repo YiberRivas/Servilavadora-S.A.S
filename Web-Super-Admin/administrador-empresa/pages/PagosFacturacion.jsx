@@ -1,69 +1,105 @@
-import { useState, useMemo } from 'react'
-import { DollarSign, Clock, AlertTriangle, TrendingUp, Search, Eye, Download, ChevronDown } from 'lucide-react'
-import { pagos } from '../data/mockDataEmpresa'
+import { useState, useEffect, useCallback } from 'react'
+import { Search, DollarSign, Clock, TrendingUp, ChevronDown } from 'lucide-react'
+import { getPagos } from '../services/empresa.service'
 import styles from '../styles/pages/DashboardEmpresa.module.css'
 
-const ITEMS_PER_PAGE = 8
-
-const estadoBadge = {
-  pagado: { cls: styles.badgePagado, text: 'Pagado' },
-  pendiente: { cls: styles.badgePendiente, text: 'Pendiente' },
-  vencido: { cls: styles.badgeVencido, text: 'Vencido' },
-}
-
 function formatCurrency(n) {
-  return '$' + n.toLocaleString('es-CO')
+  return '$' + (n || 0).toLocaleString('es-CO')
 }
 
 export default function PagosFacturacion() {
-  const [filterEstado, setFilterEstado] = useState('todos')
+  const [data, setData] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
+  const [totalRecords, setTotalRecords] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
   const [sortKey, setSortKey] = useState(null)
   const [sortDir, setSortDir] = useState('asc')
+  const [stats, setStats] = useState({ ingresosMes: 0, pendientes: 0, totalFacturado: 0 })
+  const perPage = 10
 
-  const stats = useMemo(() => ({
-    ingresosMes: pagos.filter(p => p.estado === 'pagado').reduce((s, p) => s + p.monto, 0),
-    pendientes: pagos.filter(p => p.estado === 'pendiente').length,
-    totalFacturado: pagos.reduce((s, p) => s + p.monto, 0),
-  }), [])
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const params = { page, per_page: perPage }
+      if (search) params.search = search
+      const res = await getPagos(params)
+      if (res.success) {
+        setData(res.data || [])
+        setTotalRecords(res.total || 0)
+        setTotalPages(res.total_pages || 1)
+      } else {
+        setError(res.message || 'Error al cargar pagos')
+        setData([])
+      }
+    } catch {
+      setError('Error de conexion al cargar pagos')
+      setData([])
+    } finally {
+      setLoading(false)
+    }
+  }, [page, search])
 
-  const filtered = useMemo(() => {
-    let result = [...pagos]
-    if (search) {
-      const q = search.toLowerCase()
-      result = result.filter(p => p.usuario.toLowerCase().includes(q) || p.lavadora.toLowerCase().includes(q) || p.factura.toLowerCase().includes(q))
-    }
-    if (filterEstado !== 'todos') {
-      result = result.filter(p => p.estado === filterEstado)
-    }
-    if (sortKey) {
-      result.sort((a, b) => {
-        const va = a[sortKey] || ''
-        const vb = b[sortKey] || ''
-        const cmp = String(va).localeCompare(String(vb), 'es')
-        return sortDir === 'asc' ? cmp : -cmp
-      })
-    }
-    return result
-  }, [search, filterEstado, sortKey, sortDir])
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await getPagos({ per_page: 1000 })
+      if (res.success && res.data) {
+        const all = res.data
+        setStats({
+          ingresosMes: all.filter(p => (p.estado_codigo || p.estado) === 'pagado').reduce((s, p) => s + (p.valor || p.monto || 0), 0),
+          pendientes: all.filter(p => (p.estado_codigo || p.estado) === 'pendiente').length,
+          totalFacturado: all.reduce((s, p) => s + (p.valor || p.monto || 0), 0),
+        })
+      }
+    } catch {}
+  }, [])
 
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
-  const paged = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
+  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { fetchStats() }, [fetchStats])
+  useEffect(() => { setPage(1) }, [search])
 
   const handleSort = (key) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortKey(key); setSortDir('asc') }
   }
 
+  const sorted = [...data].sort((a, b) => {
+    if (!sortKey) return 0
+    const va = a[sortKey] || ''
+    const vb = b[sortKey] || ''
+    const cmp = String(va).localeCompare(String(vb), 'es')
+    return sortDir === 'asc' ? cmp : -cmp
+  })
+
+  const estadoBadge = {
+    pagado: { cls: styles.badgeActivo, text: 'Pagado' },
+    pendiente: { cls: styles.badgePendiente || styles.badgeInactivo, text: 'Pendiente' },
+    vencido: { cls: styles.badgeInactivo, text: 'Vencido' },
+    cancelado: { cls: styles.badgeInactivo, text: 'Cancelado' },
+  }
+
+  const getBadge = (p) => {
+    const code = (p.estado_codigo || p.estado || '').toLowerCase()
+    return estadoBadge[code] || { cls: '', text: code || 'Sin estado' }
+  }
+
   return (
     <div className={styles.page}>
+      {error && (
+        <div style={{ marginBottom: 16, padding: '10px 16px', borderRadius: 8, background: 'var(--danger-tint)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: '0.82rem', color: 'var(--danger)', fontWeight: 500 }}>{error}</span>
+          <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontWeight: 700 }}>X</button>
+        </div>
+      )}
+
       <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>Pagos / Facturacion</h1>
         <p className={styles.pageDesc}>Consulta todos los pagos recibidos y facturas generadas.</p>
       </div>
 
-      {/* Stats */}
       <div className={styles.statsRow}>
         {[
           { icon: TrendingUp, label: 'Ingresos del mes', value: formatCurrency(stats.ingresosMes), bg: 'var(--accent-tint)', color: 'var(--accent-dark)' },
@@ -82,36 +118,24 @@ export default function PagosFacturacion() {
         ))}
       </div>
 
-      {/* Filters */}
       <div className={styles.filtersBar}>
         <div className={styles.searchWrap}>
           <Search width={16} height={16} className={styles.searchIcon} />
           <input
             type="text"
             className={styles.searchInput}
-            placeholder="Buscar por usuario, lavadora o factura..."
+            placeholder="Buscar por referencia o transaccion..."
             value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <select
-          className={styles.filterSelect}
-          value={filterEstado}
-          onChange={(e) => { setFilterEstado(e.target.value); setPage(1) }}
-        >
-          <option value="todos">Todos los estados</option>
-          <option value="pagado">Pagados</option>
-          <option value="pendiente">Pendientes</option>
-          <option value="vencido">Vencidos</option>
-        </select>
       </div>
 
-      {/* Table */}
       <div className={styles.tableCard}>
         <div className={styles.tableHeader}>
           <div className={styles.tableHeaderLeft}>
             <h3 className={styles.tableTitle}>Historial de pagos</h3>
-            <span className={styles.tableCount}>{filtered.length}</span>
+            <span className={styles.tableCount}>{totalRecords}</span>
           </div>
         </div>
 
@@ -119,40 +143,31 @@ export default function PagosFacturacion() {
           <table className={styles.table}>
             <thead>
               <tr>
-                <th onClick={() => handleSort('usuario')}>Usuario</th>
-                <th>Lavadora</th>
-                <th>Factura</th>
-                <th onClick={() => handleSort('monto')}>Monto</th>
+                <th>Referencia</th>
+                <th onClick={() => handleSort('valor')}>Monto</th>
                 <th>Metodo</th>
-                <th onClick={() => handleSort('fecha')}>Fecha</th>
+                <th onClick={() => handleSort('fecha_pago')}>Fecha</th>
                 <th onClick={() => handleSort('estado')}>Estado</th>
-                <th style={{ width: 60 }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {paged.length === 0 ? (
-                <tr><td colSpan={8} className={styles.tableEmpty}>No se encontraron pagos</td></tr>
-              ) : paged.map(p => {
-                const badge = estadoBadge[p.estado] || estadoBadge.pagado
+              {loading ? (
+                <tr><td colSpan={5} className={styles.tableEmpty}>Cargando pagos...</td></tr>
+              ) : sorted.length === 0 ? (
+                <tr><td colSpan={5} className={styles.tableEmpty}>No se encontraron pagos</td></tr>
+              ) : sorted.map((p, i) => {
+                const badge = getBadge(p)
                 return (
-                  <tr key={p.id}>
-                    <td><span className={styles.userName}>{p.usuario}</span></td>
-                    <td><span className={styles.cellProduct}>{p.lavadora}</span></td>
-                    <td><span className={styles.cellMuted}>{p.factura}</span></td>
-                    <td><span className={styles.cellMuted}>{formatCurrency(p.monto)}</span></td>
-                    <td><span className={styles.cellMuted}>{p.metodo}</span></td>
-                    <td><span className={styles.cellMuted}>{p.fecha}</span></td>
+                  <tr key={p.uuid || i}>
+                    <td><span className={styles.userName}>{p.numero_transaccion || p.referencia || '-'}</span></td>
+                    <td><span className={styles.cellMuted}>{formatCurrency(p.valor)}</span></td>
+                    <td><span className={styles.cellProduct}>{p.metodo_pago || p.metodo_pago_nombre || '-'}</span></td>
+                    <td><span className={styles.cellMuted}>{p.fecha_pago ? new Date(p.fecha_pago).toLocaleDateString('es-CO') : '-'}</span></td>
                     <td>
                       <span className={`${styles.badge} ${badge.cls}`}>
                         <span className={styles.badgeDot} />
                         {badge.text}
                       </span>
-                    </td>
-                    <td>
-                      <div className={styles.actions}>
-                        <button className={styles.actionBtn} title="Ver factura"><Eye width={14} height={14} /></button>
-                        <button className={styles.actionBtn} title="Descargar"><Download width={14} height={14} /></button>
-                      </div>
                     </td>
                   </tr>
                 )
@@ -163,7 +178,7 @@ export default function PagosFacturacion() {
 
         <div className={styles.tablePagination}>
           <span className={styles.paginationInfo}>
-            Mostrando {filtered.length > 0 ? Math.min((page - 1) * ITEMS_PER_PAGE + 1, filtered.length) : 0} - {Math.min(page * ITEMS_PER_PAGE, filtered.length)} de {filtered.length}
+            Mostrando {totalRecords > 0 ? Math.min((page - 1) * perPage + 1, totalRecords) : 0} - {Math.min(page * perPage, totalRecords)} de {totalRecords}
           </span>
           <div className={styles.paginationBtns}>
             {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (

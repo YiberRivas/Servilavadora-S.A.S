@@ -1,17 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { View, StyleSheet, TouchableOpacity, Animated, Dimensions, Alert, Platform, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Animated, Alert, Platform, ActivityIndicator } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, Polyline, PROVIDER_GOOGLE, AnimatedRegion, MarkerAnimated } from 'react-native-maps';
 import MapViewDirections from 'react-native-maps-directions';
 import * as Location from 'expo-location';
+import Constants from 'expo-constants';
 import { routesService } from '../../src/services/routes.service';
 import { colors, radii, shadows } from '../../src/theme';
 
-const GOOGLE_MAPS_APIKEY = 'TU_GOOGLE_MAPS_API_KEY';
-
-const { width } = Dimensions.get('window');
+const GOOGLE_MAPS_APIKEY = Constants.expoConfig?.extra?.googleMapsApiKey || '';
 const LOCATION_INTERVAL = 5000;
+const GPS_STATES = { ACTIVE: 'active', SEARCHING: 'searching', NONE: 'none' };
 
 export default function DriverNavigationScreen() {
   const router = useRouter();
@@ -30,7 +30,18 @@ export default function DriverNavigationScreen() {
     longitudeDelta: 0.01,
   });
   const [googleRoute, setGoogleRoute] = useState({ distance: null, duration: null });
+  const [gpsState, setGpsState] = useState(GPS_STATES.NONE);
+  const [heading, setHeading] = useState(0);
+  const [autoFollow, setAutoFollow] = useState(true);
   const mapRef = useRef(null);
+  const driverAnimRegion = useRef(
+    new AnimatedRegion({
+      latitude: 4.6097,
+      longitude: -74.0817,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    })
+  ).current;
   const locationSubRef = useRef(null);
   const wsCleanupRef = useRef(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -105,12 +116,14 @@ export default function DriverNavigationScreen() {
       if (response.success) {
         setRouteData(response.data);
         if (response.data.latitud_actual && response.data.longitud_actual) {
-          setRegion({
+          const initCoord = {
             latitude: response.data.latitud_actual,
             longitude: response.data.longitud_actual,
             latitudeDelta: 0.01,
             longitudeDelta: 0.01,
-          });
+          };
+          setRegion(initCoord);
+          driverAnimRegion.setValue(initCoord);
         }
       } else {
         setError(response.message || 'No hay ruta activa');
@@ -141,6 +154,12 @@ export default function DriverNavigationScreen() {
       return;
     }
 
+    setGpsState(GPS_STATES.SEARCHING);
+
+    const gpsTimeout = setTimeout(() => {
+      setGpsState((prev) => prev === GPS_STATES.ACTIVE ? prev : GPS_STATES.NONE);
+    }, 10000);
+
     locationSubRef.current = await Location.watchPositionAsync(
       {
         accuracy: Location.Accuracy.High,
@@ -149,30 +168,49 @@ export default function DriverNavigationScreen() {
       },
       async (location) => {
         if (!routeData?.uuid) return;
+        setGpsState(GPS_STATES.ACTIVE);
+        const newLat = location.coords.latitude;
+        const newLng = location.coords.longitude;
+        const newHeading = location.coords.heading || 0;
+        setHeading(newHeading);
+
         try {
           await routesService.updateLocation(routeData.uuid, {
-            latitud: location.coords.latitude,
-            longitud: location.coords.longitude,
+            latitud: newLat,
+            longitud: newLng,
             precision: location.coords.accuracy,
-            heading: location.coords.heading,
+            heading: newHeading,
             velocidad: location.coords.speed ? location.coords.speed * 3.6 : 0,
             timestamp: new Date(location.timestamp).toISOString(),
           });
-
-          const newRegion = {
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          };
-          setRegion(newRegion);
-          if (mapRef.current) {
-            mapRef.current.animateToRegion(newRegion, 1000);
-          }
         } catch {}
+
+        const newCoord = { latitude: newLat, longitude: newLng };
+        driverAnimRegion.timing({ ...newCoord, latitudeDelta: 0.01, longitudeDelta: 0.01 }, { duration: 800 }).start();
+
+        setRegion((prev) => ({ ...prev, ...newCoord }));
+        if (autoFollow && mapRef.current) {
+          mapRef.current.animateToRegion({ ...newCoord, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 800);
+        }
       }
     );
-  }, [routeData?.uuid]);
+
+    return () => {
+      clearTimeout(gpsTimeout);
+      if (locationSubRef.current) {
+        locationSubRef.current.remove();
+        locationSubRef.current = null;
+      }
+    };
+  }, [routeData?.uuid, autoFollow]);
+
+  const recenterMap = useCallback(() => {
+    if (mapRef.current && origin) {
+      setAutoFollow(true);
+      mapRef.current.animateToRegion({ ...origin, latitudeDelta: 0.01, longitudeDelta: 0.01 }, 600);
+    }
+  }, [origin]);
+
 
   const stopLocationTracking = useCallback(() => {
     if (locationSubRef.current) {
@@ -248,17 +286,17 @@ export default function DriverNavigationScreen() {
 
   const handleDeliver = useCallback(async () => {
     if (!routeData?.uuid) return;
-    Alert.alert('Entregar lavadora', 'Confirmar que la lavadora fue entregada al cliente?', [
+    Alert.alert('Confirmar entrega', '¿Confirmar que la lavadora fue entregada al cliente?', [
       { text: 'Cancelar', style: 'cancel' },
       {
-        text: 'Entregar',
+        text: 'Confirmar',
         onPress: async () => {
           setIsDelivering(true);
           try {
             const res = await routesService.deliverRoute(routeData.uuid);
             if (res.success) {
-              setRouteData((prev) => ({ ...prev, alquiler_estado: 'ACTIVO' }));
-              Alert.alert('Lavadora entregada', 'El servicio ahora esta activo. Finalice la ruta cuando termine.');
+              await loadRoute();
+              Alert.alert('Entrega registrada', 'La lavadora fue entregada correctamente.');
             } else {
               Alert.alert('Error', res.message || 'No se pudo registrar la entrega');
             }
@@ -270,7 +308,7 @@ export default function DriverNavigationScreen() {
         },
       },
     ]);
-  }, [routeData?.uuid]);
+  }, [routeData?.uuid, loadRoute]);
 
   if (isLoading) {
     return (
@@ -316,7 +354,10 @@ export default function DriverNavigationScreen() {
   const isEnCurso = routeData?.estado === 'EN_CURSO';
   const isPendiente = routeData?.estado === 'PENDIENTE';
   const isFinalizada = routeData?.estado === 'FINALIZADA';
-  const showDirections = isEnCurso && origin && destination && GOOGLE_MAPS_APIKEY !== 'TU_GOOGLE_MAPS_API_KEY';
+  const showDirections = isEnCurso && origin && destination && !!GOOGLE_MAPS_APIKEY;
+
+  const gpsColor = gpsState === GPS_STATES.ACTIVE ? colors.accent : gpsState === GPS_STATES.SEARCHING ? '#FFC107' : colors.error;
+  const gpsLabel = gpsState === GPS_STATES.ACTIVE ? 'GPS activo' : gpsState === GPS_STATES.SEARCHING ? 'Buscando senal' : 'Sin senal';
 
   return (
     <View style={styles.screen}>
@@ -336,13 +377,18 @@ export default function DriverNavigationScreen() {
           region={region}
           showsUserLocation={false}
           showsMyLocationButton={false}
+          onPanDrag={() => setAutoFollow(false)}
         >
           {origin && (
-            <Marker coordinate={origin} title="Tu ubicacion">
+            <MarkerAnimated
+              coordinate={driverAnimRegion}
+              title="Tu ubicacion"
+              style={{ transform: [{ rotate: `${heading}deg` }] }}
+            >
               <View style={[styles.markerDriver, { backgroundColor: colors.accent }]}>
                 <Icon source="truck-delivery" size={18} color={colors.white} />
               </View>
-            </Marker>
+            </MarkerAnimated>
           )}
           {routeData?.latitud_cliente && routeData?.longitud_cliente && (
             <Marker coordinate={{ latitude: routeData.latitud_cliente, longitude: routeData.longitud_cliente }} title="Cliente">
@@ -375,6 +421,20 @@ export default function DriverNavigationScreen() {
             <Polyline coordinates={[origin, destination]} strokeColor={colors.accent} strokeWidth={4} />
           )}
         </MapView>
+
+        <View style={styles.gpsIndicator}>
+          <View style={[styles.gpsDot, { backgroundColor: gpsColor }]} />
+          <Text style={styles.gpsLabel}>{gpsLabel}</Text>
+        </View>
+
+        {isEnCurso && (
+          <TouchableOpacity
+            style={[styles.fab, { backgroundColor: autoFollow ? colors.accent : colors.white }]}
+            onPress={recenterMap}
+          >
+            <Icon source="crosshairs-gps" size={22} color={autoFollow ? colors.white : colors.blue900} />
+          </TouchableOpacity>
+        )}
       </View>
 
       <Animated.View style={[styles.infoPanel, { backgroundColor: colors.white }, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
@@ -491,6 +551,10 @@ const styles = StyleSheet.create({
   emptyBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.white },
   mapContainer: { flex: 1 },
   map: { flex: 1 },
+  gpsIndicator: { position: 'absolute', top: 12, left: 12, flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.92)', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 20, gap: 6, ...shadows.sm },
+  gpsDot: { width: 8, height: 8, borderRadius: 4 },
+  gpsLabel: { fontFamily: 'Inter_500Medium', fontSize: 11, color: colors.gray700 },
+  fab: { position: 'absolute', bottom: 16, right: 16, width: 48, height: 48, borderRadius: 24, justifyContent: 'center', alignItems: 'center', ...shadows.md },
   markerDriver: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: colors.white },
   markerClient: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: colors.white },
   markerDest: { width: 32, height: 32, borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: colors.white },

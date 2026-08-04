@@ -15,6 +15,9 @@ import UsuariosClientes from '../administrador-empresa/pages/UsuariosClientes'
 import Lavadoras from '../administrador-empresa/pages/Lavadoras'
 import Alquileres from '../administrador-empresa/pages/Alquileres'
 import PagosFacturacion from '../administrador-empresa/pages/PagosFacturacion'
+import Solicitudes from '../administrador-empresa/pages/Solicitudes'
+import Repartidores from '../administrador-empresa/pages/Repartidores'
+import Notificaciones from '../administrador-empresa/pages/Notificaciones'
 
 function ProtectedRoute({ children, roleRequired }) {
   const { user, loading } = useAuth()
@@ -66,10 +69,13 @@ function AppRoutes() {
         </ProtectedRoute>
       }>
         <Route index element={<DashboardEmpresa />} />
+        <Route path="solicitudes" element={<Solicitudes />} />
         <Route path="usuarios" element={<UsuariosClientes />} />
+        <Route path="repartidores" element={<Repartidores />} />
         <Route path="lavadoras" element={<Lavadoras />} />
         <Route path="alquileres" element={<Alquileres />} />
         <Route path="pagos" element={<PagosFacturacion />} />
+        <Route path="notificaciones" element={<Notificaciones />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

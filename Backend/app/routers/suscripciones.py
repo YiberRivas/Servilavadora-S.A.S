@@ -40,10 +40,22 @@ async def list_suscripciones(
     result = await db.execute(query)
     subs = result.scalars().all()
 
+    plan_ids = list({s.id_plan for s in subs})
+    plan_map = {}
+    if plan_ids:
+        plan_q = select(Plan).where(Plan.id_plan.in_(plan_ids))
+        plan_map = {p.id_plan: p for p in (await db.execute(plan_q)).scalars().all()}
+
+    emp_ids = list({s.id_empresa for s in subs})
+    emp_map = {}
+    if emp_ids:
+        emp_q = select(Empresa).where(Empresa.id_empresa.in_(emp_ids))
+        emp_map = {e.id_empresa: e for e in (await db.execute(emp_q)).scalars().all()}
+
     data = []
     for s in subs:
-        plan = (await db.execute(select(Plan).where(Plan.id_plan == s.id_plan))).scalar_one_or_none()
-        emp = (await db.execute(select(Empresa).where(Empresa.id_empresa == s.id_empresa))).scalar_one_or_none()
+        plan = plan_map.get(s.id_plan)
+        emp = emp_map.get(s.id_empresa)
         data.append({
             "uuid": s.uuid, "id_empresa": s.id_empresa,
             "empresa_nombre": emp.razon_social if emp else "",

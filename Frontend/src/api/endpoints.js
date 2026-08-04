@@ -13,6 +13,7 @@ const endpoints = {
     me: `${API_PREFIX}/auth/me`,
     profile: `${API_PREFIX}/auth/profile`,
     changePassword: `${API_PREFIX}/auth/change-password`,
+    forgotPassword: `${API_PREFIX}/auth/forgot-password`,
   },
 
   usuarios: {
@@ -55,6 +56,9 @@ const endpoints = {
     misServicioDetail: (uuid) => `${API_PREFIX}/alquileres/mis-servicios/${uuid}`,
     misServicioCronometro: (uuid) => `${API_PREFIX}/alquileres/mis-servicios/${uuid}/cronometro`,
     misHistorial: `${API_PREFIX}/alquileres/mis-historial`,
+    solicitarFinalizacion: (uuid) => `${API_PREFIX}/alquileres/${uuid}/solicitar-finalizacion`,
+    aceptarSolicitud: (uuid) => `${API_PREFIX}/alquileres/solicitudes/${uuid}/aceptar`,
+    rechazarSolicitud: (uuid) => `${API_PREFIX}/alquileres/solicitudes/${uuid}/rechazar`,
   },
 
   dashboard: `${API_PREFIX}/dashboard`,

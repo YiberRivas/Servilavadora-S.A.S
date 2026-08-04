@@ -1,14 +1,15 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
+from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.base import (
     Usuario, ClienteEmpresa, Persona, Empresa,
 )
 from app.schemas.common import ApiResponse, PaginatedResponse
 from app.schemas.modulos import ClienteCreate, ClienteUpdate
-from app.dependencies import require_role
+from app.dependencies import require_role, get_admin_empresa_id
 from app.utils.logging import get_logger
 from app.utils.uuid import generate_uuid
 from math import ceil
@@ -26,13 +27,21 @@ async def list_clientes(
     current_user: Usuario = Depends(require_role("SUPER_ADMIN", "ADMIN_EMPRESA")),
     db: AsyncSession = Depends(get_db),
 ):
+    empresa_id = await get_admin_empresa_id(db, current_user)
+
     query = (
         select(ClienteEmpresa)
-        .join(UserObj, ClienteEmpresa.id_usuario == UserObj.id_usuario)
-        .join(Persona, UserObj.id_persona == Persona.id_persona)
+        .join(Usuario, ClienteEmpresa.id_usuario == Usuario.id_usuario)
+        .join(Persona, Usuario.id_persona == Persona.id_persona)
+        .options(
+            selectinload(ClienteEmpresa.usuario)
+            .selectinload(Usuario.persona)
+        )
     )
 
-    if id_empresa:
+    if empresa_id is not None:
+        query = query.where(ClienteEmpresa.id_empresa == empresa_id)
+    elif id_empresa:
         query = query.where(ClienteEmpresa.id_empresa == id_empresa)
     if search:
         search_term = f"%{search}%"
@@ -46,12 +55,11 @@ async def list_clientes(
     query = query.order_by(ClienteEmpresa.created_at.desc())
     query = query.offset((page - 1) * per_page).limit(per_page)
     result = await db.execute(query)
-    clientes = result.scalars().all()
+    clientes = result.unique().scalars().all()
 
     data = []
     for c in clientes:
-        user = (await db.execute(select(UserObj).options(selectinload(UserObj.persona)).where(UserObj.id_usuario == c.id_usuario))).scalar_one_or_none()
-        p = user.persona if user else None
+        p = c.usuario.persona if c.usuario and c.usuario.persona else None
         data.append({
             "uuid": c.uuid,
             "id_empresa": c.id_empresa,
@@ -82,7 +90,7 @@ async def get_cliente(
     if not cliente:
         return ApiResponse(success=False, message="Cliente no encontrado")
 
-    user = (await db.execute(select(UserObj).options(selectinload(UserObj.persona)).where(UserObj.id_usuario == cliente.id_usuario))).scalar_one_or_none()
+    user = (await db.execute(select(Usuario).options(selectinload(Usuario.persona)).where(Usuario.id_usuario == cliente.id_usuario))).scalar_one_or_none()
     p = user.persona if user else None
 
     return ApiResponse(success=True, message="OK", data={

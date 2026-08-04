@@ -1,176 +1,208 @@
-import { useState, useMemo } from 'react'
-import { RefreshCw, TrendingUp, Clock, AlertTriangle, Search, ChevronDown, Eye } from 'lucide-react'
-import { alquileres } from '../data/mockDataEmpresa'
+import { useState, useEffect, useCallback } from 'react'
+import { Package, Play, RotateCcw } from 'lucide-react'
+import { getAlquileres, programarRecogida } from '../services/empresa.service'
 import styles from '../styles/pages/DashboardEmpresa.module.css'
 
-const ITEMS_PER_PAGE = 8
-
-const estadoBadge = {
-  activo: { cls: styles.badgeActivo, text: 'Activo' },
-  finalizado: { cls: styles.badgeFinalizado, text: 'Finalizado' },
-  atrasado: { cls: styles.badgeAtrasado, text: 'Atrasado' },
-}
-
-function formatCurrency(n) {
-  return '$' + n.toLocaleString('es-CO')
+const ESTADO_COLORS = {
+  PENDIENTE: { bg: 'var(--warning-tint)', text: 'var(--warning)' },
+  CAMINO: { bg: 'var(--primary-tint)', text: 'var(--primary)' },
+  ACTIVO: { bg: 'var(--accent-tint)', text: 'var(--accent-dark)' },
+  FINALIZACION: { bg: 'var(--warning-tint)', text: 'var(--warning)' },
+  FINALIZADO: { bg: 'var(--success-tint)', text: 'var(--success)' },
+  CANCELADO: { bg: 'var(--gray-100)', text: 'var(--gray-500)' },
 }
 
 export default function Alquileres() {
-  const [filterEstado, setFilterEstado] = useState('todos')
-  const [search, setSearch] = useState('')
+  const [data, setData] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [toast, setToast] = useState(null)
   const [page, setPage] = useState(1)
-  const [sortKey, setSortKey] = useState(null)
-  const [sortDir, setSortDir] = useState('asc')
+  const [totalRecords, setTotalRecords] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [filterEstado, setFilterEstado] = useState('')
+  const perPage = 15
 
-  const stats = useMemo(() => ({
-    activos: alquileres.filter(a => a.estado === 'activo').length,
-    delMes: alquileres.filter(a => a.fechaInicio >= '2026-07-01' && a.fechaInicio <= '2026-07-31').length,
-    atrasados: alquileres.filter(a => a.estado === 'atrasado').length,
-    totalMonto: alquileres.reduce((sum, a) => sum + a.monto, 0),
-  }), [])
+  const showToast = (msg, type = 'success') => {
+    setToast({ msg, type })
+    setTimeout(() => setToast(null), 3500)
+  }
 
-  const filtered = useMemo(() => {
-    let result = [...alquileres]
-    if (search) {
-      const q = search.toLowerCase()
-      result = result.filter(a => a.usuario.toLowerCase().includes(q) || a.lavadora.toLowerCase().includes(q))
+  const fetchData = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const params = { page, per_page: perPage }
+      if (filterEstado) params.id_estado = filterEstado
+      const res = await getAlquileres(params)
+      if (res.success) {
+        setData(res.data || [])
+        setTotalRecords(res.total || 0)
+        setTotalPages(res.total_pages || 1)
+      } else {
+        setError(res.message || 'Error al cargar alquileres')
+        setData([])
+      }
+    } catch {
+      setError('Error de conexion')
+      setData([])
+    } finally {
+      setLoading(false)
     }
-    if (filterEstado !== 'todos') {
-      result = result.filter(a => a.estado === filterEstado)
-    }
-    if (sortKey) {
-      result.sort((a, b) => {
-        const va = a[sortKey] || ''
-        const vb = b[sortKey] || ''
-        const cmp = String(va).localeCompare(String(vb), 'es')
-        return sortDir === 'asc' ? cmp : -cmp
-      })
-    }
-    return result
-  }, [search, filterEstado, sortKey, sortDir])
+  }, [page, filterEstado])
 
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE)
-  const paged = filtered.slice((page - 1) * ITEMS_PER_PAGE, page * ITEMS_PER_PAGE)
+  useEffect(() => { fetchData() }, [fetchData])
+  useEffect(() => { setPage(1) }, [filterEstado])
 
-  const handleSort = (key) => {
-    if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortKey(key); setSortDir('asc') }
+  const handleProgramarRecogida = async (uuid) => {
+    try {
+      const res = await programarRecogida(uuid, {})
+      if (res.success) {
+        showToast('Recogida programada correctamente')
+        fetchData()
+      } else {
+        showToast(res.message || 'Error al programar recogida', 'error')
+      }
+    } catch {
+      showToast('Error de conexion', 'error')
+    }
+  }
+
+  const formatDate = (d) => {
+    if (!d) return '-'
+    return new Date(d).toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
   }
 
   return (
     <div className={styles.page}>
       <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>Alquileres</h1>
-        <p className={styles.pageDesc}>Monitorea todos los alquileres de lavadoras a tus clientes.</p>
+        <p className={styles.pageDesc}>Monitorea los alquileres activos de lavadoras a tus clientes.</p>
       </div>
 
-      {/* Stats */}
-      <div className={styles.statsRow}>
-        {[
-          { icon: RefreshCw, label: 'Alquileres activos', value: stats.activos, bg: 'var(--accent-tint)', color: 'var(--accent-dark)' },
-          { icon: TrendingUp, label: 'Alquileres del mes', value: stats.delMes, bg: 'var(--blue-100)', color: 'var(--blue-700)' },
-          { icon: AlertTriangle, label: 'Alquileres atrasados', value: stats.atrasados, bg: 'var(--danger-tint)', color: 'var(--danger)' },
-          { icon: Clock, label: 'Total facturado', value: formatCurrency(stats.totalMonto), bg: 'var(--warning-tint)', color: 'var(--warning)' },
-        ].map((s, i) => (
-          <div key={i} className={styles.miniStat} style={{ flex: 1 }}>
-            <div className={styles.miniStatIcon} style={{ background: s.bg, color: s.color }}>
-              <s.icon width={18} height={18} />
-            </div>
-            <div className={styles.miniStatInfo}>
-              <span className={styles.miniStatValue}>{s.value}</span>
-              <span className={styles.miniStatLabel}>{s.label}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Filters */}
-      <div className={styles.filtersBar}>
-        <div className={styles.searchWrap}>
-          <Search width={16} height={16} className={styles.searchIcon} />
-          <input
-            type="text"
-            className={styles.searchInput}
-            placeholder="Buscar por usuario o lavadora..."
-            value={search}
-            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
-          />
+      {toast && (
+        <div style={{
+          position: 'fixed', top: 20, right: 20, zIndex: 9999,
+          padding: '12px 20px', borderRadius: 8,
+          background: toast.type === 'success' ? 'var(--accent)' : 'var(--danger)',
+          color: '#fff', fontSize: '0.85rem', fontWeight: 600,
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        }}>
+          {toast.msg}
         </div>
+      )}
+
+      {error && (
+        <div style={{ marginBottom: 16, padding: '10px 16px', borderRadius: 8, background: 'var(--danger-tint)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: '0.82rem', color: 'var(--danger)', fontWeight: 500 }}>{error}</span>
+          <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--danger)', fontWeight: 700 }}>X</button>
+        </div>
+      )}
+
+      <div className={styles.filtersBar}>
         <select
-          className={styles.filterSelect}
           value={filterEstado}
-          onChange={(e) => { setFilterEstado(e.target.value); setPage(1) }}
+          onChange={(e) => setFilterEstado(e.target.value)}
+          style={{
+            padding: '8px 12px', borderRadius: 8, border: '1px solid var(--gray-200)',
+            fontSize: '0.82rem', color: 'var(--gray-700)', background: 'var(--white)', cursor: 'pointer',
+          }}
         >
-          <option value="todos">Todos los estados</option>
-          <option value="activo">Activos</option>
-          <option value="finalizado">Finalizados</option>
-          <option value="atrasado">Atrasados</option>
+          <option value="">Todos los estados</option>
+          <option value="1">Pendiente</option>
+          <option value="2">Camino</option>
+          <option value="3">Activo</option>
+          <option value="4">Finalizacion</option>
+          <option value="5">Finalizado</option>
+          <option value="6">Cancelado</option>
         </select>
       </div>
 
-      {/* Table */}
       <div className={styles.tableCard}>
-        <div className={styles.tableHeader}>
-          <div className={styles.tableHeaderLeft}>
-            <h3 className={styles.tableTitle}>Historial de alquileres</h3>
-            <span className={styles.tableCount}>{filtered.length}</span>
+        {loading ? (
+          <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--gray-500)' }}>
+            Cargando alquileres...
           </div>
-        </div>
-
-        <div className={styles.tableWrap}>
+        ) : data.length === 0 ? (
+          <div style={{ padding: '60px 20px', textAlign: 'center', color: 'var(--gray-500)' }}>
+            No se encontraron alquileres
+          </div>
+        ) : (
           <table className={styles.table}>
             <thead>
               <tr>
-                <th onClick={() => handleSort('usuario')}>Usuario</th>
-                <th onClick={() => handleSort('lavadora')}>Lavadora</th>
-                <th>Fecha inicio</th>
-                <th>Fecha fin</th>
-                <th onClick={() => handleSort('estado')}>Estado</th>
-                <th onClick={() => handleSort('monto')}>Monto</th>
-                <th style={{ width: 60 }}>Info</th>
+                <th>Cliente</th>
+                <th>Lavadora</th>
+                <th>Inicio</th>
+                <th>Fin</th>
+                <th>Estado</th>
+                <th style={{ width: 120 }}>Acciones</th>
               </tr>
             </thead>
             <tbody>
-              {paged.length === 0 ? (
-                <tr><td colSpan={7} className={styles.tableEmpty}>No se encontraron alquileres</td></tr>
-              ) : paged.map(a => {
-                const badge = estadoBadge[a.estado] || estadoBadge.activo
+              {data.map((a) => {
+                const estado = a.estado?.nombre || a.estado_nombre || 'PENDIENTE'
+                const ec = ESTADO_COLORS[estado] || ESTADO_COLORS.PENDIENTE
+                const cliente = a.cliente?.nombre || a.cliente_nombre || '-'
+                const lavadora = a.lavadora?.nombre || a.lavadora_nombre || '-'
                 return (
-                  <tr key={a.id}>
-                    <td><span className={styles.userName}>{a.usuario}</span></td>
-                    <td><span className={styles.cellProduct}>{a.lavadora}</span></td>
-                    <td><span className={styles.cellMuted}>{a.fechaInicio}</span></td>
-                    <td><span className={styles.cellMuted}>{a.fechaFin}</span></td>
+                  <tr key={a.id_alquiler || a.uuid}>
+                    <td style={{ fontWeight: 500 }}>{cliente}</td>
+                    <td>{lavadora}</td>
+                    <td>{formatDate(a.fecha_inicio)}</td>
+                    <td>{formatDate(a.fecha_fin)}</td>
                     <td>
-                      <span className={`${styles.badge} ${badge.cls}`}>
-                        <span className={styles.badgeDot} />
-                        {badge.text}
+                      <span style={{
+                        padding: '4px 10px', borderRadius: 20, fontSize: '0.72rem',
+                        fontWeight: 600, background: ec.bg, color: ec.text,
+                      }}>
+                        {estado}
                       </span>
                     </td>
-                    <td><span className={styles.cellMuted}>{formatCurrency(a.monto)}</span></td>
                     <td>
-                      <div className={styles.actions}>
-                        <button className={styles.actionBtn} title="Ver detalle"><Eye width={14} height={14} /></button>
-                      </div>
+                      {estado === 'FINALIZACION' && (
+                        <button
+                          onClick={() => handleProgramarRecogida(a.uuid)}
+                          title="Programar recogida"
+                          style={{
+                            padding: '5px 10px', borderRadius: 6, border: 'none',
+                            background: 'var(--primary)', color: '#fff', cursor: 'pointer',
+                            fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4,
+                          }}
+                        >
+                          <RotateCcw width={14} /> Recoger
+                        </button>
+                      )}
                     </td>
                   </tr>
                 )
               })}
             </tbody>
           </table>
-        </div>
-
-        <div className={styles.tablePagination}>
-          <span className={styles.paginationInfo}>
-            Mostrando {filtered.length > 0 ? Math.min((page - 1) * ITEMS_PER_PAGE + 1, filtered.length) : 0} - {Math.min(page * ITEMS_PER_PAGE, filtered.length)} de {filtered.length}
-          </span>
-          <div className={styles.paginationBtns}>
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(p => (
-              <button key={p} className={`${styles.pageBtn} ${p === page ? styles.pageBtnActive : ''}`} onClick={() => setPage(p)}>{p}</button>
-            ))}
-          </div>
-        </div>
+        )}
       </div>
+
+      {totalRecords > perPage && (
+        <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+          <button
+            onClick={() => setPage(p => Math.max(1, p - 1))}
+            disabled={page === 1}
+            style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid var(--gray-200)', background: page === 1 ? 'var(--gray-100)' : 'var(--white)', cursor: page === 1 ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}
+          >
+            Anterior
+          </button>
+          <span style={{ padding: '6px 14px', fontSize: '0.8rem', color: 'var(--gray-600)' }}>
+            Pagina {page} de {totalPages} ({totalRecords} registros)
+          </span>
+          <button
+            onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+            disabled={page === totalPages}
+            style={{ padding: '6px 14px', borderRadius: 6, border: '1px solid var(--gray-200)', background: page === totalPages ? 'var(--gray-100)' : 'var(--white)', cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: '0.8rem' }}
+          >
+            Siguiente
+          </button>
+        </div>
+      )}
     </div>
   )
 }

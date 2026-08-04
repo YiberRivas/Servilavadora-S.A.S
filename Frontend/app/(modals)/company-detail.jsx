@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { View, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, Dimensions, Platform, ActivityIndicator } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { companiesService } from '../../src/services';
+import { companiesService } from '../../src/services/companies.service';
 import { formatCurrency, formatMinutes } from '../../src/utils/formatters';
 import { colors, radii, shadows } from '../../src/theme';
 
@@ -77,12 +77,18 @@ function AnimatedSection({ children, delay = 0 }) {
   );
 }
 
-const CapacityCard = React.memo(function CapacityCard({ capacity, companyId }) {
+const CapacityCard = React.memo(function CapacityCard({ capacity, companyId, onNavigate }) {
   const isAvailable = capacity.available > 0;
 
-  const handleOrderNow = () => {};
+  const handleOrderNow = () => {
+    if (!isAvailable || !onNavigate) return;
+    onNavigate(companyId, capacity.id, 'now');
+  };
 
-  const handleReserve = () => {};
+  const handleReserve = () => {
+    if (!isAvailable || !onNavigate) return;
+    onNavigate(companyId, capacity.id, 'reserva');
+  };
 
   return (
     <View style={[styles.capacityCard, { backgroundColor: colors.white }]}>
@@ -277,7 +283,12 @@ export default function CompanyDetailScreen() {
             <Text style={[styles.sectionTitle, { paddingHorizontal: 24 }]}>Capacidades disponibles</Text>
             <View style={styles.capacitiesList}>
               {company.capacities?.map((capacity) => (
-                <CapacityCard key={capacity.id} capacity={capacity} companyId={company.id} />
+                <CapacityCard
+                  key={capacity.id}
+                  capacity={capacity}
+                  companyId={company.id}
+                  onNavigate={(cid, capId, type) => router.push(`/(modals)/request-service?companyId=${cid}&capacityId=${capId}&requestType=${type}`)}
+                />
               ))}
               {(!company.capacities || company.capacities.length === 0) && (
                 <Text style={styles.emptyServices}>No hay capacidades disponibles</Text>

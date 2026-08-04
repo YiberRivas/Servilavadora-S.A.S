@@ -66,4 +66,14 @@ export const authService = {
     await storage.setTokens(access_token, refresh_token);
     return response.data;
   },
+
+  async forgotPassword(email) {
+    const { data: response } = await apiClient.post(endpoints.auth.forgotPassword, {
+      email,
+    });
+    if (!response.success) {
+      throw new Error(response.message || 'Error al enviar instrucciones');
+    }
+    return response;
+  },
 };

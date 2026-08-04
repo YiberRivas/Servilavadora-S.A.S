@@ -34,9 +34,15 @@ async def list_mantenimientos(
     result = await db.execute(query)
     man = result.scalars().all()
 
+    lav_ids = list({m.id_lavadora for m in man})
+    lav_map = {}
+    if lav_ids:
+        lav_q = select(Lavadora).where(Lavadora.id_lavadora.in_(lav_ids))
+        lav_map = {l.id_lavadora: l for l in (await db.execute(lav_q)).scalars().all()}
+
     data = []
     for m in man:
-        lav = (await db.execute(select(Lavadora).where(Lavadora.id_lavadora == m.id_lavadora))).scalar_one_or_none()
+        lav = lav_map.get(m.id_lavadora)
         data.append({
             "uuid": m.uuid, "id_lavadora": m.id_lavadora,
             "fecha": m.fecha.isoformat() if m.fecha else None,

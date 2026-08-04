@@ -37,6 +37,7 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" />
           <Stack.Screen name="(app)" />
           <Stack.Screen name="(driver)" />
+          <Stack.Screen name="(admin)" />
           <Stack.Screen name="(modals)" options={{ presentation: 'modal' }} />
         </Stack>
       </AuthProvider>
