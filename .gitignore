@@ -14,7 +14,7 @@ android/
 ios/
 
 # Environment
-.env
+
 
 # Logs
 npm-debug.log*
