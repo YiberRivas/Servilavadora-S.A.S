@@ -9,13 +9,14 @@ from app.models.base import (
     LiquidacionAlquiler, CronometroAlquiler, Empresa, ClienteEmpresa,
     AsignacionSolicitud, Lavadora, MarcaLavadora, ModeloLavadora,
     CapacidadLavadora, Repartidor, Persona, TarifaEmpresa, Sucursal,
-    RutaGPS, EstadoLavadora,
+    RutaGPS, EstadoLavadora, EmpleadoEmpresa,
 )
 from app.schemas.common import ApiResponse, PaginatedResponse
 from app.dependencies import require_role, get_admin_empresa_id
 from app.utils.logging import get_logger
 from app.utils.uuid import generate_uuid
 from app.utils.push_notifications import create_notification_and_push
+from app.websockets.notifications import hub as notification_hub
 from math import ceil
 
 logger = get_logger(__name__)
@@ -317,15 +318,11 @@ async def mis_servicios(
     alquileres = alq_result.scalars().unique().all()
 
     alq_estados_map = {
-        "PROGRAMADO": "programada",
-        "EN_CAMINO": "en_camino",
-        "ENTREGADO": "lavadora_entregada",
-        "EN_USO": "en_uso",
-        "FINALIZACION_SOLICITADA": "finalizacion_solicitada",
-        "RECOGIDO": "recogida",
-        "EN_INSPECCION": "en_inspeccion",
-        "LIQUIDADO": "finalizada",
-        "FACTURADO": "finalizada",
+        "PENDIENTE": "pendiente",
+        "CAMINO": "en_camino",
+        "ACTIVO": "lavadora_entregada",
+        "FINALIZACION": "finalizacion_solicitada",
+        "FINALIZADO": "finalizada",
         "CANCELADO": "cancelado",
     }
     sol_estados_map = {
@@ -368,13 +365,13 @@ async def mis_servicios(
         timeline = {}
         if sol and sol.fecha_solicitud:
             timeline["solicitud"] = sol.fecha_solicitud.strftime("%H:%M")
-        if alq_estado in ("EN_CAMINO", "ENTREGADO", "EN_USO", "FINALIZACION_SOLICITADA", "RECOGIDO", "LIQUIDADO", "FACTURADO"):
+        if alq_estado in ("CAMINO", "ACTIVO", "FINALIZACION", "FINALIZADO"):
             timeline["aceptada"] = sol.fecha_solicitud.strftime("%H:%M") if sol and sol.fecha_solicitud else None
             timeline["programada"] = sol.fecha_programada.strftime("%H:%M") if sol and sol.fecha_programada else None
-        if alq_estado in ("EN_USO", "FINALIZACION_SOLICITADA", "RECOGIDO", "LIQUIDADO", "FACTURADO"):
+        if alq_estado in ("ACTIVO", "FINALIZACION", "FINALIZADO"):
             timeline["en_uso"] = a.fecha_inicio.strftime("%H:%M") if a.fecha_inicio else None
 
-        can_cancel = alq_estado in ("PROGRAMADO",)
+        can_cancel = alq_estado in ("PENDIENTE",)
 
         items.append({
             "uuid": a.uuid,
@@ -402,8 +399,8 @@ async def mis_servicios(
             "timeline": timeline,
             "observaciones": a.observaciones or (sol.observaciones if sol else ""),
             "puedeCancelar": can_cancel,
-            "puedeRastrear": alq_estado in ("PROGRAMADO", "EN_CAMINO"),
-            "puedeFinalizar": alq_estado == "EN_USO",
+            "puedeRastrear": alq_estado in ("PENDIENTE", "CAMINO"),
+            "puedeFinalizar": alq_estado == "ACTIVO",
         })
 
     for sol in solicitudes:
@@ -563,11 +560,10 @@ async def mis_servicio_detail(
         a_cron = alquiler.cronometro
         a_estado = alquiler.estado_alquiler_rel.codigo if alquiler.estado_alquiler_rel else ""
         a_estados = {
-            "PROGRAMADO": "programada", "EN_CAMINO": "en_camino",
-            "ENTREGADO": "lavadora_entregada", "EN_USO": "en_uso",
-            "FINALIZACION_SOLICITADA": "finalizacion_solicitada",
-            "RECOGIDO": "recogida", "EN_INSPECCION": "en_inspeccion",
-            "LIQUIDADO": "finalizada", "FACTURADO": "finalizada", "CANCELADO": "cancelado",
+            "PENDIENTE": "pendiente", "CAMINO": "en_camino",
+            "ACTIVO": "lavadora_entregada",
+            "FINALIZACION": "finalizacion_solicitada",
+            "FINALIZADO": "finalizada", "CANCELADO": "cancelado",
         }
         alq_data = {
             "uuid": alquiler.uuid,
@@ -700,11 +696,10 @@ async def mis_historial(
     alquileres = alq_result.scalars().unique().all()
 
     alq_estados = {
-        "PROGRAMADO": "programada", "EN_CAMINO": "en_camino",
-        "ENTREGADO": "lavadora_entregada", "EN_USO": "en_uso",
-        "FINALIZACION_SOLICITADA": "finalizacion_solicitada",
-        "RECOGIDO": "recogida", "EN_INSPECCION": "en_inspeccion",
-        "LIQUIDADO": "finalizado", "FACTURADO": "finalizado", "CANCELADO": "cancelado",
+        "PENDIENTE": "pendiente", "CAMINO": "en_camino",
+        "ACTIVO": "lavadora_entregada",
+        "FINALIZACION": "finalizacion_solicitada",
+        "FINALIZADO": "finalizada", "CANCELADO": "cancelado",
     }
 
     items = []
@@ -803,6 +798,9 @@ async def create_solicitud(
     fecha_programada = payload.get("fecha_programada")
     direccion_entrega = payload.get("direccion_entrega")
     observaciones = payload.get("observaciones", "")
+    latitud = payload.get("latitud")
+    longitud = payload.get("longitud")
+    barrio = payload.get("barrio", "")
 
     if not all([empresa_uuid, capacidad_kg, fecha_programada, direccion_entrega]):
         return ApiResponse(success=False, message="Faltan campos obligatorios")
@@ -859,21 +857,55 @@ async def create_solicitud(
         fecha_programada=datetime.fromisoformat(fecha_programada.replace("Z", "+00:00")) if fecha_programada else None,
         observaciones=observaciones,
         direccion_entrega=direccion_entrega,
+        latitud=latitud,
+        longitud=longitud,
         estado=1,
     )
     db.add(sol)
-    await db.commit()
+    await db.flush()
     await db.refresh(sol)
 
     await create_notification_and_push(
-        db, empresa.id_usuario,
-        titulo="Nueva solicitud de servicio",
-        mensaje=f"El cliente ha creado una solicitud de alquiler para capacidad {cap_lav.capacidad_kg}kg.",
+        db, current_user.id_usuario,
+        titulo="Solicitud de servicio creada",
+        mensaje=f"Tu solicitud de alquiler para capacidad {cap_lav.capacidad_kg}kg ha sido creada exitosamente.",
         tipo="SOLICITUD",
         icono="file-document-outline",
         color="#12A594",
         data={"solicitud_uuid": sol.uuid},
     )
+
+    admin_empleado = (await db.execute(
+        select(EmpleadoEmpresa).where(
+            EmpleadoEmpresa.id_empresa == empresa.id_empresa,
+            EmpleadoEmpresa.estado == 1,
+        ).limit(1)
+    )).scalar_one_or_none()
+    if admin_empleado:
+        await create_notification_and_push(
+            db, admin_empleado.id_usuario,
+            titulo="Nueva solicitud de servicio",
+            mensaje=f"El cliente ha creado una solicitud de alquiler para capacidad {cap_lav.capacidad_kg}kg.",
+            tipo="SOLICITUD",
+            icono="file-document-outline",
+            color="#12A594",
+            data={"solicitud_uuid": sol.uuid},
+        )
+
+    try:
+        await notification_hub.broadcast_to_empresa(
+            empresa.id_empresa,
+            "nueva_solicitud",
+            {
+                "solicitud_uuid": sol.uuid,
+                "cliente_nombre": f"{current_user.persona.nombres} {current_user.persona.apellidos}" if hasattr(current_user, 'persona') and current_user.persona else "",
+                "capacidad_kg": float(cap_lav.capacidad_kg),
+                "fecha_programada": sol.fecha_programada.isoformat() if sol.fecha_programada else None,
+                "direccion_entrega": sol.direccion_entrega,
+            }
+        )
+    except Exception:
+        pass
 
     return ApiResponse(success=True, message="Solicitud creada exitosamente", data={
         "uuid": sol.uuid,
@@ -896,18 +928,20 @@ async def aceptar_solicitud(
     if not sol:
         return ApiResponse(success=False, message="Solicitud no encontrada")
 
+    if current_user.rol.codigo == "ADMIN_EMPRESA":
+        admin_empresa_id = await get_admin_empresa_id(db, current_user)
+        if admin_empresa_id is None or admin_empresa_id != sol.id_empresa:
+            return ApiResponse(success=False, message="No tiene acceso a esta solicitud")
+
+    sol_estado = sol.estado_solicitud_rel.codigo if sol.estado_solicitud_rel else ""
+    if sol_estado != "PENDIENTE":
+        return ApiResponse(success=False, message="La solicitud no esta en estado PENDIENTE")
+
     empresa = (await db.execute(
         select(Empresa).where(Empresa.id_empresa == sol.id_empresa)
     )).scalar_one_or_none()
     if not empresa:
         return ApiResponse(success=False, message="Empresa no encontrada")
-
-    if current_user.rol.codigo == "ADMIN_EMPRESA" and empresa.id_usuario != current_user.id_usuario:
-        return ApiResponse(success=False, message="No tiene acceso a esta solicitud")
-
-    sol_estado = sol.estado_solicitud_rel.codigo if sol.estado_solicitud_rel else ""
-    if sol_estado != "PENDIENTE":
-        return ApiResponse(success=False, message="La solicitud no esta en estado PENDIENTE")
 
     aceptada = (await db.execute(
         select(EstadoSolicitud).where(EstadoSolicitud.codigo == "ACEPTADA")
@@ -917,33 +951,146 @@ async def aceptar_solicitud(
 
     sol.id_estado_solicitud = aceptada.id_estado_solicitud
     sol.updated_at = datetime.now(timezone.utc)
+    await db.flush()
 
-    lavadora = (await db.execute(
+    cliente_user = (await db.execute(
+        select(ClienteEmpresa).where(ClienteEmpresa.id_cliente_empresa == sol.id_cliente_empresa)
+    )).scalar_one_or_none()
+
+    if cliente_user:
+        await create_notification_and_push(
+            db, cliente_user.id_usuario,
+            titulo="Solicitud aceptada",
+            mensaje="Tu solicitud ha sido aceptada. Selecciona un repartidor para asignar.",
+            tipo="SERVICIO",
+            icono="check-circle",
+            color="#28A745",
+            data={"solicitud_uuid": sol.uuid},
+        )
+
+    admin_empleado = (await db.execute(
+        select(EmpleadoEmpresa).where(
+            EmpleadoEmpresa.id_empresa == sol.id_empresa,
+            EmpleadoEmpresa.estado == 1,
+        ).limit(1)
+    )).scalar_one_or_none()
+
+    repartidores_disponibles = (await db.execute(
+        select(Repartidor).where(
+            Repartidor.id_empresa == sol.id_empresa,
+            Repartidor.estado == 1,
+            Repartidor.disponible == 1,
+        )
+    )).scalars().all()
+
+    lavadoras_disponibles = (await db.execute(
         select(Lavadora).where(
             Lavadora.id_empresa == sol.id_empresa,
             Lavadora.id_capacidad_lavadora == sol.id_capacidad_lavadora,
             Lavadora.estado == 1,
             Lavadora.disponible == 1,
-        ).limit(1)
+        )
+    )).scalars().all()
+
+    repartidores_data = []
+    for r in repartidores_disponibles:
+        user_r = (await db.execute(
+            select(Usuario).options(selectinload(Usuario.persona)).where(Usuario.id_usuario == r.id_usuario)
+        )).scalar_one_or_none()
+        p = user_r.persona if user_r and user_r.persona else None
+        repartidores_data.append({
+            "uuid": r.uuid,
+            "id_repartidor": r.id_repartidor,
+            "nombre_completo": f"{p.nombres} {p.apellidos}" if p else "",
+            "telefono": p.telefono if p else "",
+        })
+
+    lavadoras_data = [{
+        "uuid": l.uuid,
+        "id_lavadora": l.id_lavadora,
+        "codigo_interno": l.codigo_interno,
+        "color": l.color or "",
+    } for l in lavadoras_disponibles]
+
+    return ApiResponse(success=True, message="Solicitud aceptada exitosamente", data={
+        "solicitud_uuid": sol.uuid,
+        "estado": sol_estado,
+        "repartidores_disponibles": repartidores_data,
+        "lavadoras_disponibles": lavadoras_data,
+    })
+
+
+@router.post("/solicitudes/{uuid}/asignar-repartidor", response_model=ApiResponse)
+async def asignar_repartidor(
+    uuid: str,
+    payload: dict,
+    current_user: Usuario = Depends(require_role("ADMIN_EMPRESA", "SUPER_ADMIN")),
+    db: AsyncSession = Depends(get_db),
+):
+    id_repartidor = payload.get("id_repartidor")
+    id_lavadora = payload.get("id_lavadora")
+
+    if not id_repartidor or not id_lavadora:
+        return ApiResponse(success=False, message="Se requiere id_repartidor e id_lavadora")
+
+    sol = (await db.execute(
+        select(SolicitudAlquiler)
+        .options(selectinload(SolicitudAlquiler.estado_solicitud_rel))
+        .where(SolicitudAlquiler.uuid == uuid)
     )).scalar_one_or_none()
-    if not lavadora:
-        return ApiResponse(success=False, message="No hay lavadoras disponibles de la capacidad solicitada")
+    if not sol:
+        return ApiResponse(success=False, message="Solicitud no encontrada")
+
+    if current_user.rol.codigo == "ADMIN_EMPRESA":
+        admin_empresa_id = await get_admin_empresa_id(db, current_user)
+        if admin_empresa_id is None or admin_empresa_id != sol.id_empresa:
+            return ApiResponse(success=False, message="No tiene acceso a esta solicitud")
+
+    sol_estado = sol.estado_solicitud_rel.codigo if sol.estado_solicitud_rel else ""
+    if sol_estado != "ACEPTADA":
+        return ApiResponse(success=False, message="La solicitud debe estar en estado ACEPTADA")
+
+    empresa = (await db.execute(
+        select(Empresa).where(Empresa.id_empresa == sol.id_empresa)
+    )).scalar_one_or_none()
+    if not empresa:
+        return ApiResponse(success=False, message="Empresa no encontrada")
 
     repartidor = (await db.execute(
         select(Repartidor).where(
+            Repartidor.id_repartidor == id_repartidor,
             Repartidor.id_empresa == sol.id_empresa,
             Repartidor.estado == 1,
             Repartidor.disponible == 1,
-        ).limit(1)
+        )
     )).scalar_one_or_none()
     if not repartidor:
-        return ApiResponse(success=False, message="No hay repartidores disponibles en la empresa")
+        return ApiResponse(success=False, message="Repartidor no disponible")
+
+    lavadora = (await db.execute(
+        select(Lavadora).where(
+            Lavadora.id_lavadora == id_lavadora,
+            Lavadora.id_empresa == sol.id_empresa,
+            Lavadora.id_capacidad_lavadora == sol.id_capacidad_lavadora,
+            Lavadora.estado == 1,
+            Lavadora.disponible == 1,
+        )
+    )).scalar_one_or_none()
+    if not lavadora:
+        return ApiResponse(success=False, message="Lavadora no disponible")
 
     pendiente_alq = (await db.execute(
         select(EstadoAlquiler).where(EstadoAlquiler.codigo == "PENDIENTE")
     )).scalar_one_or_none()
     if not pendiente_alq:
         return ApiResponse(success=False, message="Estado PENDIENTE de alquiler no encontrado en el sistema")
+
+    en_curso = (await db.execute(
+        select(EstadoSolicitud).where(EstadoSolicitud.codigo == "EN_CURSO")
+    )).scalar_one_or_none()
+    if en_curso:
+        sol.id_estado_solicitud = en_curso.id_estado_solicitud
+        sol.updated_at = datetime.now(timezone.utc)
 
     alquiler = Alquiler(
         uuid=generate_uuid(),
@@ -964,12 +1111,14 @@ async def aceptar_solicitud(
 
     lavadora.disponible = 0
     en_uso_estado = (await db.execute(
-        select(EstadoLavadora).where(EstadoLavadora.codigo == "EN_USO")
+        select(EstadoLavadora).where(EstadoLavadora.codigo == "ALQUILER")
     )).scalar_one_or_none()
     if en_uso_estado:
         lavadora.id_estado_lavadora = en_uso_estado.id_estado_lavadora
 
     repartidor.disponible = 0
+
+    now_ruta = datetime.now(timezone.utc)
 
     ruta = RutaGPS(
         uuid=generate_uuid(),
@@ -985,6 +1134,24 @@ async def aceptar_solicitud(
     db.add(ruta)
     await db.flush()
 
+    asignacion = AsignacionSolicitud(
+        uuid=generate_uuid(),
+        id_solicitud_alquiler=sol.id_solicitud_alquiler,
+        id_lavadora=lavadora.id_lavadora,
+        id_repartidor=repartidor.id_repartidor,
+        fecha_asignacion=now_ruta,
+    )
+    db.add(asignacion)
+
+    cronometro = CronometroAlquiler(
+        uuid=generate_uuid(),
+        id_alquiler=alquiler.id_alquiler,
+        fecha_inicio=now_ruta,
+        activo=0,
+    )
+    db.add(cronometro)
+    await db.flush()
+
     cliente_user = (await db.execute(
         select(ClienteEmpresa).where(ClienteEmpresa.id_cliente_empresa == sol.id_cliente_empresa)
     )).scalar_one_or_none()
@@ -992,15 +1159,54 @@ async def aceptar_solicitud(
     if cliente_user:
         await create_notification_and_push(
             db, cliente_user.id_usuario,
-            titulo="Solicitud aceptada",
-            mensaje=f"Tu solicitud ha sido aceptada. Se ha asignado un repartidor y una lavadora.",
+            titulo="Servicio asignado",
+            mensaje=f"Se ha asignado un repartidor a tu solicitud. La lavadora {lavadora.codigo_interno} esta en camino.",
             tipo="SERVICIO",
-            icono="check-circle",
-            color="#28A745",
+            icono="truck",
+            color="#12A594",
             data={"solicitud_uuid": sol.uuid, "alquiler_uuid": alquiler.uuid, "ruta_uuid": ruta.uuid},
         )
 
-    return ApiResponse(success=True, message="Solicitud aceptada exitosamente", data={
+    rep_user = (await db.execute(
+        select(Usuario).where(Usuario.id_usuario == repartidor.id_usuario)
+    )).scalar_one_or_none()
+    if rep_user:
+        await create_notification_and_push(
+            db, rep_user.id_usuario,
+            titulo="Nueva asignacion",
+            mensaje=f"Se te ha asignado un servicio para {empresa.nombre_comercial}. Dirigete al cliente.",
+            tipo="SERVICIO",
+            icono="truck",
+            color="#12A594",
+            data={"solicitud_uuid": sol.uuid, "alquiler_uuid": alquiler.uuid, "ruta_uuid": ruta.uuid},
+        )
+
+    try:
+        await notification_hub.broadcast_to_user(
+            repartidor.id_usuario,
+            "asignacion_servicio",
+            {
+                "alquiler_uuid": alquiler.uuid,
+                "ruta_uuid": ruta.uuid,
+                "empresa_nombre": empresa.nombre_comercial,
+                "direccion_entrega": sol.direccion_entrega,
+                "latitud": float(sol.latitud) if sol.latitud else None,
+                "longitud": float(sol.longitud) if sol.longitud else None,
+            }
+        )
+        await notification_hub.broadcast_to_cliente(
+            sol.id_cliente_empresa,
+            "servicio_asignado",
+            {
+                "alquiler_uuid": alquiler.uuid,
+                "repartidor_nombre": f"{repartidor.usuario.persona.nombres} {repartidor.usuario.persona.apellidos}" if repartidor.usuario and repartidor.usuario.persona else "",
+                "lavadora_codigo": lavadora.codigo_interno,
+            }
+        )
+    except Exception:
+        pass
+
+    return ApiResponse(success=True, message="Repartidor asignado exitosamente", data={
         "solicitud_uuid": sol.uuid,
         "alquiler_uuid": alquiler.uuid,
         "ruta_uuid": ruta.uuid,
@@ -1029,14 +1235,10 @@ async def rechazar_solicitud(
     if not sol:
         return ApiResponse(success=False, message="Solicitud no encontrada")
 
-    empresa = (await db.execute(
-        select(Empresa).where(Empresa.id_empresa == sol.id_empresa)
-    )).scalar_one_or_none()
-    if not empresa:
-        return ApiResponse(success=False, message="Empresa no encontrada")
-
-    if current_user.rol.codigo == "ADMIN_EMPRESA" and empresa.id_usuario != current_user.id_usuario:
-        return ApiResponse(success=False, message="No tiene acceso a esta solicitud")
+    if current_user.rol.codigo == "ADMIN_EMPRESA":
+        admin_empresa_id = await get_admin_empresa_id(db, current_user)
+        if admin_empresa_id is None or admin_empresa_id != sol.id_empresa:
+            return ApiResponse(success=False, message="No tiene acceso a esta solicitud")
 
     sol_estado = sol.estado_solicitud_rel.codigo if sol.estado_solicitud_rel else ""
     if sol_estado != "PENDIENTE":
@@ -1122,12 +1324,15 @@ async def solicitar_finalizacion(
     )).scalar_one_or_none()
 
     if sol:
-        empresa = (await db.execute(
-            select(Empresa).where(Empresa.id_empresa == sol.id_empresa)
+        admin_empleado = (await db.execute(
+            select(EmpleadoEmpresa).where(
+                EmpleadoEmpresa.id_empresa == sol.id_empresa,
+                EmpleadoEmpresa.estado == 1,
+            ).limit(1)
         )).scalar_one_or_none()
-        if empresa:
+        if admin_empleado:
             await create_notification_and_push(
-                db, empresa.id_usuario,
+                db, admin_empleado.id_usuario,
                 titulo="Solicitud de recogida",
                 mensaje=f"El cliente solicito la recogida de la lavadora. Alquiler #{alquiler.uuid[:8].upper()}.",
                 tipo="SERVICIO",
@@ -1136,7 +1341,7 @@ async def solicitar_finalizacion(
                 data={"alquiler_uuid": alquiler.uuid},
             )
 
-    await db.commit()
+    await db.flush()
 
     return ApiResponse(success=True, message="Finalizacion solicitada exitosamente", data={
         "alquiler_uuid": alquiler.uuid,
@@ -1167,14 +1372,16 @@ async def programar_recogida(
     if not sol:
         return ApiResponse(success=False, message="Solicitud asociada no encontrada")
 
+    if current_user.rol.codigo == "ADMIN_EMPRESA":
+        admin_empresa_id = await get_admin_empresa_id(db, current_user)
+        if admin_empresa_id is None or admin_empresa_id != sol.id_empresa:
+            return ApiResponse(success=False, message="No tiene acceso a este alquiler")
+
     empresa = (await db.execute(
         select(Empresa).where(Empresa.id_empresa == sol.id_empresa)
     )).scalar_one_or_none()
     if not empresa:
         return ApiResponse(success=False, message="Empresa no encontrada")
-
-    if current_user.rol.codigo == "ADMIN_EMPRESA" and empresa.id_usuario != current_user.id_usuario:
-        return ApiResponse(success=False, message="No tiene acceso a este alquiler")
 
     estado_codigo = alquiler.estado_alquiler_rel.codigo if alquiler.estado_alquiler_rel else ""
     if estado_codigo != "FINALIZACION":
@@ -1240,7 +1447,7 @@ async def programar_recogida(
             data={"alquiler_uuid": alquiler.uuid, "ruta_uuid": ruta.uuid},
         )
 
-    await db.commit()
+    await db.flush()
 
     return ApiResponse(success=True, message="Recogida programada exitosamente", data={
         "alquiler_uuid": alquiler.uuid,

@@ -101,6 +101,7 @@ const endpoints = {
     iniciar: (uuid) => `${API_PREFIX}/rutas/${uuid}/iniciar`,
     entregar: (uuid) => `${API_PREFIX}/rutas/${uuid}/entregar`,
     finalizar: (uuid) => `${API_PREFIX}/rutas/${uuid}/finalizar`,
+    recogerLavadora: (uuid) => `${API_PREFIX}/rutas/${uuid}/recoger-lavadora`,
     ubicacion: (uuid) => `${API_PREFIX}/rutas/${uuid}/ubicacion`,
   },
 
@@ -177,6 +178,7 @@ const endpoints = {
   ws: {
     cronometro: (uuid) => `${ENV.WS_BASE_URL}/ws/cronometro/${uuid}`,
     ruta: (uuid) => `${ENV.WS_BASE_URL}/ws/rutas/${uuid}`,
+    notifications: (userUuid) => `${ENV.WS_BASE_URL}/ws/notifications/${userUuid}`,
   },
 
   public: {

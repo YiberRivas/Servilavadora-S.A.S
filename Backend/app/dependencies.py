@@ -72,4 +72,6 @@ async def get_admin_empresa_id(db: AsyncSession, current_user: Usuario):
         )
     )
     empleado = emp_result.scalar_one_or_none()
+    if not empleado and current_user.rol.codigo == "ADMIN_EMPRESA":
+        return -1
     return empleado.id_empresa if empleado else None

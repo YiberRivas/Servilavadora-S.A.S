@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { Users, Truck, DollarSign, Bell, TrendingUp } from 'lucide-react'
-import { getClientes, getRepartidores, getPagos, getNotificaciones } from '../services/empresa.service'
+import { getClientes, getRepartidores, getPagos, getNotificaciones, getNotificacionesNoLeidasCount } from '../services/empresa.service'
 import { useAuth } from '../../src/context/AuthContext'
+import { useNotifications } from '../hooks/useNotifications'
 import styles from '../styles/pages/DashboardEmpresa.module.css'
 
 export default function DashboardEmpresa() {
@@ -18,43 +19,55 @@ export default function DashboardEmpresa() {
   const [ultimasNotificaciones, setUltimasNotificaciones] = useState([])
   const [ultimosPagos, setUltimosPagos] = useState([])
 
-  useEffect(() => {
-    const fetchAll = async () => {
-      setLoading(true)
-      try {
-        const [clientesRes, repartidoresRes, pagosRes, notifRes] = await Promise.allSettled([
-          getClientes({ per_page: 1 }),
-          getRepartidores({ per_page: 1 }),
-          getPagos({ per_page: 5 }),
-          getNotificaciones({ per_page: 5 }),
-        ])
+  const { lastEvent, clearLastEvent } = useNotifications(user?.uuid)
 
-        const clientes = clientesRes.status === 'fulfilled' && clientesRes.value.success ? clientesRes.value : { total: 0, data: [] }
-        const reps = repartidoresRes.status === 'fulfilled' && repartidoresRes.value.success ? repartidoresRes.value : { total: 0, data: [] }
-        const pagos = pagosRes.status === 'fulfilled' && pagosRes.value.success ? pagosRes.value : { total: 0, data: [] }
-        const notifs = notifRes.status === 'fulfilled' && notifRes.value.success ? notifRes.value : { total: 0, data: [] }
+  const fetchAll = async () => {
+    setLoading(true)
+    try {
+      const [clientesRes, repartidoresRes, pagosRes, notifRes, unreadRes] = await Promise.allSettled([
+        getClientes({ per_page: 100 }),
+        getRepartidores({ per_page: 100 }),
+        getPagos({ per_page: 100 }),
+        getNotificaciones({ per_page: 5 }),
+        getNotificacionesNoLeidasCount(),
+      ])
 
-        const repsData = reps.data || []
-        const pagosData = pagos.data || []
+      const clientes = clientesRes.status === 'fulfilled' && clientesRes.value.success ? clientesRes.value : { total: 0, data: [] }
+      const reps = repartidoresRes.status === 'fulfilled' && repartidoresRes.value.success ? repartidoresRes.value : { total: 0, data: [] }
+      const pagos = pagosRes.status === 'fulfilled' && pagosRes.value.success ? pagosRes.value : { total: 0, data: [] }
+      const notifs = notifRes.status === 'fulfilled' && notifRes.value.success ? notifRes.value : { total: 0, data: [] }
+      const unreadCount = unreadRes.status === 'fulfilled' && unreadRes.value.success ? (unreadRes.value.data?.count || unreadRes.value.count || unreadRes.value.total || 0) : 0
 
-        setStats({
-          totalClientes: clientes.total || 0,
-          totalRepartidores: reps.total || 0,
-          repartidoresDisponibles: repsData.filter(r => r.disponible === true || r.disponible === 1).length,
-          totalPagos: pagos.total || 0,
-          ingresosTotales: pagosData.reduce((s, p) => s + (p.valor || 0), 0),
-          notificacionesNoLeidas: notifs.total || 0,
-        })
+      const repsData = reps.data || []
+      const pagosData = pagos.data || []
 
-        setUltimasNotificaciones((notifs.data || []).slice(0, 5))
-        setUltimosPagos(pagosData.slice(0, 5))
-      } catch {
-        // ignore
-      }
-      setLoading(false)
+      setStats({
+        totalClientes: clientes.total || 0,
+        totalRepartidores: reps.total || 0,
+        repartidoresDisponibles: repsData.filter(r => r.disponible === true || r.disponible === 1).length,
+        totalPagos: pagos.total || 0,
+        ingresosTotales: pagosData.reduce((s, p) => s + (p.valor || 0), 0),
+        notificacionesNoLeidas: unreadCount,
+      })
+
+      setUltimasNotificaciones((notifs.data || []).slice(0, 5))
+      setUltimosPagos(pagosData.slice(0, 5))
+    } catch {
+      // ignore
     }
+    setLoading(false)
+  }
+
+  useEffect(() => {
     fetchAll()
   }, [])
+
+  useEffect(() => {
+    if (lastEvent && (lastEvent._eventType === 'nueva_solicitud' || lastEvent._eventType === 'new_notification')) {
+      fetchAll()
+      clearLastEvent()
+    }
+  }, [lastEvent, clearLastEvent])
 
   if (loading) {
     return (

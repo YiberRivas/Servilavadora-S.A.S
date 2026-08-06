@@ -678,6 +678,7 @@ class Alquiler(Base):
     minutos_facturados = Column(Integer, default=0)
     valor_total = Column(Numeric(12, 2), default=0)
     observaciones = Column(Text)
+    metodo_pago = Column(String(20))
     estado = Column(SmallInteger, default=1)
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())

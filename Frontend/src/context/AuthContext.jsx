@@ -21,9 +21,21 @@ export function AuthProvider({ children }) {
         setLoading(false);
         return;
       }
-      const userData = await authService.getMe();
-      setToken(storedToken);
-      setUser(userData);
+      const storedUser = await storage.getUser();
+      if (storedUser) {
+        setUser(storedUser);
+        setToken(storedToken);
+      }
+      setLoading(false);
+      try {
+        const userData = await authService.getMe();
+        setUser(userData);
+        setToken(storedToken);
+      } catch {
+        await storage.clearAuth();
+        setUser(null);
+        setToken(null);
+      }
     } catch {
       await storage.clearAuth();
     } finally {

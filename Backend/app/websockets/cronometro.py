@@ -8,7 +8,7 @@ from app.database import async_session
 from app.models.base import (
     Alquiler, CronometroAlquiler, TarifaEmpresa,
     Usuario, Repartidor, ClienteEmpresa, SolicitudAlquiler,
-    Sucursal, Lavadora, CapacidadLavadora, Empresa,
+    Sucursal, Lavadora, CapacidadLavadora, Empresa, EmpleadoEmpresa,
 )
 from app.security.jwt import decode_token
 from app.utils.logging import get_logger
@@ -45,8 +45,14 @@ async def validate_ws_ownership(db, user_id: int, alquiler):
         return True
 
     if rol_codigo == "ADMIN_EMPRESA":
+        emp_emp_result = await db.execute(
+            select(EmpleadoEmpresa).where(EmpleadoEmpresa.id_usuario == user.id_usuario)
+        )
+        emp_emp = emp_emp_result.scalars().first()
+        if not emp_emp:
+            return False
         empresa_result = await db.execute(
-            select(Empresa).where(Empresa.id_usuario == user.id_usuario)
+            select(Empresa).where(Empresa.id_empresa == emp_emp.id_empresa)
         )
         empresa = empresa_result.scalar_one_or_none()
         if not empresa:
@@ -167,6 +173,9 @@ async def websocket_cronometro(websocket: WebSocket, alquiler_uuid: str):
                     break
 
                 now = datetime.now(timezone.utc)
+                if not cronometro.fecha_inicio:
+                    await websocket.send_json({"error": "Cronometro sin fecha de inicio"})
+                    break
                 start = cronometro.fecha_inicio.replace(tzinfo=timezone.utc) if cronometro.fecha_inicio.tzinfo is None else cronometro.fecha_inicio
                 elapsed_seconds = max(0, int((now - start).total_seconds()))
                 minutos_transcurridos = elapsed_seconds // 60

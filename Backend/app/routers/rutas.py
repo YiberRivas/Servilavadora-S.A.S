@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, Query, HTTPException
+from fastapi import APIRouter, Depends, Query, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, text
 from sqlalchemy.orm import selectinload
@@ -8,7 +8,7 @@ from app.models.base import (
     Usuario, Ruta, RutaGPS, UbicacionRuta, Alquiler,
     ClienteEmpresa, Repartidor, EstadoAlquiler,
     Lavadora, EstadoLavadora, CronometroAlquiler,
-    TarifaEmpresa,
+    TarifaEmpresa, LiquidacionAlquiler, PagoCliente, MetodoPago, EstadoPago,
 )
 from app.schemas.common import ApiResponse, PaginatedResponse
 from app.schemas.modulos import (
@@ -19,6 +19,7 @@ from app.utils.logging import get_logger
 from app.utils.uuid import generate_uuid
 from app.utils.push_notifications import create_notification_and_push
 from app.utils.geolocation import haversine, estimate_time
+from app.websockets.notifications import hub as notification_hub
 from math import ceil
 
 logger = get_logger(__name__)
@@ -151,19 +152,18 @@ async def get_my_route(
             return ApiResponse(success=False, message="No hay ruta activa")
 
     elif current_user.rol.codigo == "REPARTIDOR":
-        rep_result = await db.execute(
+        rep_ids = [r.id_repartidor for r in (await db.execute(
             select(Repartidor).where(
                 Repartidor.id_usuario == current_user.id_usuario,
                 Repartidor.estado == 1,
-            ).limit(1)
-        )
-        repartidor = rep_result.scalar_one_or_none()
-        if not repartidor:
+            )
+        )).scalars().all()]
+        if not rep_ids:
             return ApiResponse(success=False, message="Repartidor no encontrado")
 
         route_result = await db.execute(
             select(RutaGPS).where(
-                RutaGPS.id_repartidor == repartidor.id_repartidor,
+                RutaGPS.id_repartidor.in_(rep_ids),
                 RutaGPS.estado.in_(["EN_CURSO", "PENDIENTE"]),
             ).order_by(RutaGPS.created_at.desc())
         )
@@ -247,10 +247,13 @@ async def get_route_detail(
 
     elif current_user.rol.codigo == "REPARTIDOR":
         rep_result = await db.execute(
-            select(Repartidor).where(Repartidor.id_usuario == current_user.id_usuario).limit(1)
+            select(Repartidor).where(
+                Repartidor.id_usuario == current_user.id_usuario,
+                Repartidor.id_repartidor == ruta_gps.id_repartidor,
+            ).limit(1)
         )
         rep = rep_result.scalar_one_or_none()
-        if not rep or rep.id_repartidor != ruta_gps.id_repartidor:
+        if not rep:
             return ApiResponse(success=False, message="Acceso denegado")
 
     rep_result = await db.execute(
@@ -371,16 +374,6 @@ async def start_route(
     current_user: Usuario = Depends(require_role("REPARTIDOR")),
     db: AsyncSession = Depends(get_db),
 ):
-    rep_result = await db.execute(
-        select(Repartidor).where(
-            Repartidor.id_usuario == current_user.id_usuario,
-            Repartidor.estado == 1,
-        ).limit(1)
-    )
-    repartidor = rep_result.scalar_one_or_none()
-    if not repartidor:
-        return ApiResponse(success=False, message="Repartidor no encontrado")
-
     result = await db.execute(
         select(RutaGPS).where(RutaGPS.uuid == uuid)
     )
@@ -388,8 +381,15 @@ async def start_route(
     if not ruta_gps:
         return ApiResponse(success=False, message="Ruta no encontrada")
 
-    if ruta_gps.id_repartidor != repartidor.id_repartidor:
-        return ApiResponse(success=False, message="No tienes acceso a esta ruta")
+    rep_result = await db.execute(
+        select(Repartidor).where(
+            Repartidor.id_usuario == current_user.id_usuario,
+            Repartidor.id_repartidor == ruta_gps.id_repartidor,
+        ).limit(1)
+    )
+    repartidor = rep_result.scalar_one_or_none()
+    if not repartidor:
+        return ApiResponse(success=False, message="Repartidor no encontrado")
 
     if ruta_gps.estado != "PENDIENTE":
         return ApiResponse(success=False, message="La ruta ya fue iniciada")
@@ -406,13 +406,17 @@ async def start_route(
     alquiler = alq_result.scalar_one_or_none()
 
     if alquiler:
-        estado_camino = (await db.execute(
-            select(EstadoAlquiler).where(EstadoAlquiler.codigo == "CAMINO")
+        alq_estado_actual = (await db.execute(
+            select(EstadoAlquiler).where(EstadoAlquiler.id_estado_alquiler == alquiler.id_estado_alquiler)
         )).scalar_one_or_none()
-        if estado_camino:
-            alquiler.id_estado_alquiler = estado_camino.id_estado_alquiler
-            alquiler.fecha_inicio = now
-            await db.flush()
+        if alq_estado_actual and alq_estado_actual.codigo in ("PENDIENTE",):
+            estado_camino = (await db.execute(
+                select(EstadoAlquiler).where(EstadoAlquiler.codigo == "CAMINO")
+            )).scalar_one_or_none()
+            if estado_camino:
+                alquiler.id_estado_alquiler = estado_camino.id_estado_alquiler
+                alquiler.fecha_inicio = now
+                await db.flush()
 
         ce_result = await db.execute(
             select(ClienteEmpresa).where(ClienteEmpresa.id_cliente_empresa == alquiler.id_cliente_empresa)
@@ -429,6 +433,15 @@ async def start_route(
                 data={"ruta_uuid": ruta_gps.uuid, "alquiler_uuid": alquiler.uuid},
             )
 
+        try:
+            await notification_hub.broadcast_to_cliente(
+                alquiler.id_cliente_empresa,
+                "repartidor_en_camino",
+                {"alquiler_uuid": alquiler.uuid, "ruta_uuid": ruta_gps.uuid}
+            )
+        except Exception:
+            pass
+
     return ApiResponse(success=True, message="Ruta iniciada", data={"uuid": ruta_gps.uuid})
 
 
@@ -438,16 +451,6 @@ async def entregar_lavadora(
     current_user: Usuario = Depends(require_role("REPARTIDOR")),
     db: AsyncSession = Depends(get_db),
 ):
-    rep_result = await db.execute(
-        select(Repartidor).where(
-            Repartidor.id_usuario == current_user.id_usuario,
-            Repartidor.estado == 1,
-        ).limit(1)
-    )
-    repartidor = rep_result.scalar_one_or_none()
-    if not repartidor:
-        return ApiResponse(success=False, message="Repartidor no encontrado")
-
     result = await db.execute(
         select(RutaGPS).where(RutaGPS.uuid == uuid)
     )
@@ -455,18 +458,31 @@ async def entregar_lavadora(
     if not ruta_gps:
         return ApiResponse(success=False, message="Ruta no encontrada")
 
-    if ruta_gps.id_repartidor != repartidor.id_repartidor:
-        return ApiResponse(success=False, message="No tienes acceso a esta ruta")
+    rep_result = await db.execute(
+        select(Repartidor).where(
+            Repartidor.id_usuario == current_user.id_usuario,
+            Repartidor.id_repartidor == ruta_gps.id_repartidor,
+        ).limit(1)
+    )
+    repartidor = rep_result.scalar_one_or_none()
+    if not repartidor:
+        return ApiResponse(success=False, message="Repartidor no encontrado")
 
     if ruta_gps.estado != "EN_CURSO":
         return ApiResponse(success=False, message="La ruta no esta en curso")
 
     alq_result = await db.execute(
-        select(Alquiler).where(Alquiler.id_alquiler == ruta_gps.id_alquiler)
+        select(Alquiler)
+        .options(selectinload(Alquiler.estado_alquiler_rel))
+        .where(Alquiler.id_alquiler == ruta_gps.id_alquiler)
     )
     alquiler = alq_result.scalar_one_or_none()
     if not alquiler:
         return ApiResponse(success=False, message="Alquiler no encontrado")
+
+    alq_estado = alquiler.estado_alquiler_rel.codigo if alquiler.estado_alquiler_rel else ""
+    if alq_estado not in ("CAMINO",):
+        return ApiResponse(success=False, message=f"Estado del alquiler invalido para entrega: {alq_estado}. Se requiere CAMINO.")
 
     estado_activo = (await db.execute(
         select(EstadoAlquiler).where(EstadoAlquiler.codigo == "ACTIVO")
@@ -477,6 +493,15 @@ async def entregar_lavadora(
     now = datetime.now(timezone.utc)
     alquiler.id_estado_alquiler = estado_activo.id_estado_alquiler
     alquiler.updated_at = now
+
+    cron_result = await db.execute(
+        select(CronometroAlquiler).where(CronometroAlquiler.id_alquiler == alquiler.id_alquiler)
+    )
+    cronometro = cron_result.scalar_one_or_none()
+    if cronometro:
+        cronometro.fecha_inicio = now
+        cronometro.activo = 1
+
     await db.flush()
 
     ce_result = await db.execute(
@@ -494,6 +519,20 @@ async def entregar_lavadora(
             data={"ruta_uuid": ruta_gps.uuid, "alquiler_uuid": alquiler.uuid},
         )
 
+    try:
+        await notification_hub.broadcast_to_cliente(
+            alquiler.id_cliente_empresa,
+            "lavadora_entregada",
+            {"alquiler_uuid": alquiler.uuid, "ruta_uuid": ruta_gps.uuid}
+        )
+        await notification_hub.broadcast_to_empresa(
+            ruta_gps.id_empresa,
+            "estado_servicio",
+            {"alquiler_uuid": alquiler.uuid, "estado": "ACTIVO"}
+        )
+    except Exception:
+        pass
+
     return ApiResponse(success=True, message="Lavadora entregada", data={"uuid": ruta_gps.uuid})
 
 
@@ -503,16 +542,6 @@ async def finish_route(
     current_user: Usuario = Depends(require_role("REPARTIDOR")),
     db: AsyncSession = Depends(get_db),
 ):
-    rep_result = await db.execute(
-        select(Repartidor).where(
-            Repartidor.id_usuario == current_user.id_usuario,
-            Repartidor.estado == 1,
-        ).limit(1)
-    )
-    repartidor = rep_result.scalar_one_or_none()
-    if not repartidor:
-        return ApiResponse(success=False, message="Repartidor no encontrado")
-
     result = await db.execute(
         select(RutaGPS).where(RutaGPS.uuid == uuid)
     )
@@ -520,8 +549,15 @@ async def finish_route(
     if not ruta_gps:
         return ApiResponse(success=False, message="Ruta no encontrada")
 
-    if ruta_gps.id_repartidor != repartidor.id_repartidor:
-        return ApiResponse(success=False, message="No tienes acceso a esta ruta")
+    rep_result = await db.execute(
+        select(Repartidor).where(
+            Repartidor.id_usuario == current_user.id_usuario,
+            Repartidor.id_repartidor == ruta_gps.id_repartidor,
+        ).limit(1)
+    )
+    repartidor = rep_result.scalar_one_or_none()
+    if not repartidor:
+        return ApiResponse(success=False, message="Repartidor no encontrado")
 
     if ruta_gps.estado != "EN_CURSO":
         return ApiResponse(success=False, message="La ruta no esta en curso")
@@ -564,16 +600,6 @@ async def update_location(
     current_user: Usuario = Depends(require_role("REPARTIDOR")),
     db: AsyncSession = Depends(get_db),
 ):
-    rep_result = await db.execute(
-        select(Repartidor).where(
-            Repartidor.id_usuario == current_user.id_usuario,
-            Repartidor.estado == 1,
-        ).limit(1)
-    )
-    repartidor = rep_result.scalar_one_or_none()
-    if not repartidor:
-        return ApiResponse(success=False, message="Repartidor no encontrado")
-
     result = await db.execute(
         select(RutaGPS).where(RutaGPS.uuid == uuid)
     )
@@ -581,8 +607,15 @@ async def update_location(
     if not ruta_gps:
         return ApiResponse(success=False, message="Ruta no encontrada")
 
-    if ruta_gps.id_repartidor != repartidor.id_repartidor:
-        return ApiResponse(success=False, message="No tienes acceso a esta ruta")
+    rep_result = await db.execute(
+        select(Repartidor).where(
+            Repartidor.id_usuario == current_user.id_usuario,
+            Repartidor.id_repartidor == ruta_gps.id_repartidor,
+        ).limit(1)
+    )
+    repartidor = rep_result.scalar_one_or_none()
+    if not repartidor:
+        return ApiResponse(success=False, message="Repartidor no encontrado")
 
     now = datetime.now(timezone.utc)
     ruta_gps.latitud_actual = data.latitud
@@ -643,19 +676,10 @@ async def update_location(
 @router.post("/{uuid}/recoger-lavadora", response_model=ApiResponse)
 async def recoger_lavadora(
     uuid: str,
+    metodo_pago: str = Body("EFECTIVO", embed=True),
     current_user: Usuario = Depends(require_role("REPARTIDOR")),
     db: AsyncSession = Depends(get_db),
 ):
-    rep_result = await db.execute(
-        select(Repartidor).where(
-            Repartidor.id_usuario == current_user.id_usuario,
-            Repartidor.estado == 1,
-        ).limit(1)
-    )
-    repartidor = rep_result.scalar_one_or_none()
-    if not repartidor:
-        return ApiResponse(success=False, message="Repartidor no encontrado")
-
     result = await db.execute(
         select(RutaGPS).where(RutaGPS.uuid == uuid)
     )
@@ -663,8 +687,15 @@ async def recoger_lavadora(
     if not ruta_gps:
         return ApiResponse(success=False, message="Ruta no encontrada")
 
-    if ruta_gps.id_repartidor != repartidor.id_repartidor:
-        return ApiResponse(success=False, message="No tienes acceso a esta ruta")
+    rep_result = await db.execute(
+        select(Repartidor).where(
+            Repartidor.id_usuario == current_user.id_usuario,
+            Repartidor.id_repartidor == ruta_gps.id_repartidor,
+        ).limit(1)
+    )
+    repartidor = rep_result.scalar_one_or_none()
+    if not repartidor:
+        return ApiResponse(success=False, message="Repartidor no encontrado")
 
     if ruta_gps.estado != "EN_CURSO":
         return ApiResponse(success=False, message="La ruta no esta en curso")
@@ -742,6 +773,45 @@ async def recoger_lavadora(
                 alquiler.valor_total = cronometro.valor_acumulado
                 alquiler.minutos_facturados = cronometro.minutos_facturables
 
+    alquiler.metodo_pago = metodo_pago.upper()
+
+    liquidacion = LiquidacionAlquiler(
+        uuid=generate_uuid(),
+        id_alquiler=alquiler.id_alquiler,
+        tiempo_real_minutos=cronometro.minutos_transcurridos if cronometro else 0,
+        tiempo_facturado_minutos=cronometro.minutos_facturables if cronometro else 0,
+        subtotal=alquiler.valor_total or 0,
+        total=alquiler.valor_total or 0,
+        fecha_liquidacion=now,
+    )
+    db.add(liquidacion)
+    await db.flush()
+
+    metodo_pago_obj = (await db.execute(
+        select(MetodoPago).where(MetodoPago.nombre.ilike(f"%{metodo_pago}%"))
+    )).scalar_one_or_none()
+    if not metodo_pago_obj:
+        metodo_pago_obj = (await db.execute(
+            select(MetodoPago).where(MetodoPago.nombre.ilike("%efectivo%"))
+        )).scalar_one_or_none()
+
+    estado_pago = (await db.execute(
+        select(EstadoPago).where(EstadoPago.codigo == "PAGADO")
+    )).scalar_one_or_none()
+
+    if metodo_pago_obj and estado_pago and alquiler.valor_total and alquiler.valor_total > 0:
+        pago = PagoCliente(
+            uuid=generate_uuid(),
+            id_liquidacion_alquiler=liquidacion.id_liquidacion_alquiler,
+            id_metodo_pago=metodo_pago_obj.id_metodo_pago,
+            id_estado_pago=estado_pago.id_estado_pago,
+            valor=alquiler.valor_total,
+            fecha_pago=now,
+            observaciones=f"Pago por servicio de lavado - {metodo_pago.upper()}",
+        )
+        db.add(pago)
+        await db.flush()
+
     ce_result = await db.execute(
         select(ClienteEmpresa).where(ClienteEmpresa.id_cliente_empresa == alquiler.id_cliente_empresa)
     )
@@ -750,19 +820,35 @@ async def recoger_lavadora(
         await create_notification_and_push(
             db, cliente.id_usuario,
             titulo="Servicio finalizado",
-            mensaje="La lavadora ha sido recogida correctamente. El servicio ha concluido.",
+            mensaje=f"La lavadora ha sido recogida. Pago registrado: {metodo_pago.upper()}. Total: ${alquiler.valor_total or 0}",
             tipo="SERVICIO",
             icono="check-circle",
             color="#10B981",
             data={"ruta_uuid": ruta_gps.uuid, "alquiler_uuid": alquiler.uuid},
         )
 
-    await db.commit()
+    try:
+        await notification_hub.broadcast_to_cliente(
+            alquiler.id_cliente_empresa,
+            "servicio_finalizado",
+            {"alquiler_uuid": alquiler.uuid, "ruta_uuid": ruta_gps.uuid, "valor_total": float(alquiler.valor_total or 0)}
+        )
+        await notification_hub.broadcast_to_empresa(
+            ruta_gps.id_empresa,
+            "estado_servicio",
+            {"alquiler_uuid": alquiler.uuid, "estado": "FINALIZADO"}
+        )
+    except Exception:
+        pass
 
-    return ApiResponse(success=True, message="Lavadora recogida y servicio finalizado", data={
+    await db.flush()
+
+    return ApiResponse(success=True, message="Lavadora recogida, pago registrado y servicio finalizado", data={
         "alquiler_uuid": alquiler.uuid,
         "ruta_uuid": ruta_gps.uuid,
         "estado_alquiler": estado_finalizado.nombre,
         "estado_ruta": ruta_gps.estado,
-        "mensaje": "La lavadora fue recogida, el servicio ha finalizado y los recursos fueron liberados.",
+        "metodo_pago": metodo_pago.upper(),
+        "valor_total": float(alquiler.valor_total or 0),
+        "mensaje": "La lavadora fue recogida, el pago fue registrado y los recursos fueron liberados.",
     })

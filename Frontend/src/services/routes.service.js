@@ -34,6 +34,11 @@ export const routesService = {
     return data;
   },
 
+  async pickupRoute(uuid, metodoPago = 'EFECTIVO') {
+    const { data } = await apiClient.post(endpoints.rutas.recogerLavadora(uuid), { metodo_pago: metodoPago });
+    return data;
+  },
+
   async updateLocation(uuid, locationData) {
     const { data } = await apiClient.put(endpoints.rutas.ubicacion(uuid), locationData);
     return data;

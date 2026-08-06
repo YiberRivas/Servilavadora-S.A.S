@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
 from app.database import get_db
-from app.models.base import Usuario, Persona, Rol, EstadoUsuario, Empresa, EmpresaArchivo, Archivo
+from app.models.base import Usuario, Persona, Rol, EstadoUsuario, Empresa, EmpresaArchivo, Archivo, TipoDocumento
 from app.schemas.common import ApiResponse, PaginatedResponse
 from app.schemas.usuario import (
     UsuarioCreate, UsuarioUpdate, UsuarioResponse,
@@ -135,9 +135,32 @@ async def create_usuario(
     if existing.scalar_one_or_none():
         return ApiResponse(success=False, message="El username ya existe")
 
+    id_persona = data.id_persona
+    if not id_persona:
+        td_result = await db.execute(select(TipoDocumento).limit(1))
+        td = td_result.scalar_one_or_none()
+        id_tipo_doc = td.id_tipo_documento if td else 1
+        import uuid as uuid_mod
+        nombre_completo = data.nombre_completo or data.username
+        parts = nombre_completo.strip().split(" ", 1)
+        nombres = parts[0]
+        apellidos = parts[1] if len(parts) > 1 else ""
+        new_persona = Persona(
+            uuid=generate_uuid(),
+            id_tipo_documento=id_tipo_doc,
+            numero_documento=data.numero_documento or f"DOC-{str(uuid_mod.uuid4())[:8]}",
+            nombres=nombres,
+            apellidos=apellidos,
+            correo=data.correo or f"{data.username}@placeholder.local",
+            telefono=data.telefono or "",
+        )
+        db.add(new_persona)
+        await db.flush()
+        id_persona = new_persona.id_persona
+
     new_user = Usuario(
         uuid=generate_uuid(),
-        id_persona=data.id_persona,
+        id_persona=id_persona,
         id_rol=data.id_rol,
         id_estado_usuario=data.id_estado_usuario,
         username=data.username,
@@ -170,6 +193,21 @@ async def update_usuario(
         user.id_estado_usuario = data.id_estado_usuario
     if data.estado is not None:
         user.estado = data.estado
+
+    if user.id_persona and (data.nombre_completo is not None or data.correo is not None or data.telefono is not None or data.numero_documento is not None):
+        persona_result = await db.execute(select(Persona).where(Persona.id_persona == user.id_persona))
+        persona = persona_result.scalar_one_or_none()
+        if persona:
+            if data.nombre_completo is not None:
+                parts = data.nombre_completo.strip().split(" ", 1)
+                persona.nombres = parts[0]
+                persona.apellidos = parts[1] if len(parts) > 1 else ""
+            if data.correo is not None:
+                persona.correo = data.correo
+            if data.telefono is not None:
+                persona.telefono = data.telefono
+            if data.numero_documento is not None:
+                persona.numero_documento = data.numero_documento
 
     await db.flush()
     logger.info("Usuario actualizado: %s", user_uuid)

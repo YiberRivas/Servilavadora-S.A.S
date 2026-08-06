@@ -34,12 +34,14 @@ async function request(endpoint, options = {}) {
 
   const response = await fetch(url, { ...options, headers })
 
-  if (response.status === 401 && getRefreshToken()) {
-    const refreshed = await tryRefreshToken()
-    if (refreshed) {
-      headers['Authorization'] = `Bearer ${getToken()}`
-      const retryResponse = await fetch(url, { ...options, headers })
-      return handleResponse(retryResponse)
+  if (response.status === 401) {
+    if (getRefreshToken()) {
+      const refreshed = await tryRefreshToken()
+      if (refreshed) {
+        headers['Authorization'] = `Bearer ${getToken()}`
+        const retryResponse = await fetch(url, { ...options, headers })
+        return handleResponse(retryResponse)
+      }
     }
     clearTokens()
     window.location.href = '/'

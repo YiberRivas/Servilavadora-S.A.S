@@ -71,6 +71,10 @@ export async function aceptarSolicitud(uuid) {
   return api.post(`/alquileres/solicitudes/${uuid}/aceptar`)
 }
 
+export async function asignarRepartidor(uuid, data) {
+  return api.post(`/alquileres/solicitudes/${uuid}/asignar-repartidor`, data)
+}
+
 export async function rechazarSolicitud(uuid) {
   return api.post(`/alquileres/solicitudes/${uuid}/rechazar`)
 }
@@ -106,6 +110,10 @@ export async function getMetodosPago() {
 export async function getNotificaciones(params = {}) {
   const qs = buildParams(params)
   return api.get(`/notificaciones${qs ? '?' + qs : ''}`)
+}
+
+export async function getNotificacionesNoLeidasCount() {
+  return api.get('/notificaciones/no-leidas/count')
 }
 
 export async function marcarNotificacionLeida(uuid) {

@@ -31,9 +31,13 @@ class PersonaResponse(PersonaBase):
 class UsuarioCreate(BaseModel):
     username: str
     password: str
-    id_persona: int
+    id_persona: Optional[int] = None
     id_rol: int
     id_estado_usuario: int
+    nombre_completo: Optional[str] = None
+    correo: Optional[str] = None
+    telefono: Optional[str] = None
+    numero_documento: Optional[str] = None
 
 
 class UsuarioUpdate(BaseModel):
@@ -41,6 +45,10 @@ class UsuarioUpdate(BaseModel):
     id_rol: Optional[int] = None
     id_estado_usuario: Optional[int] = None
     estado: Optional[int] = None
+    nombre_completo: Optional[str] = None
+    correo: Optional[str] = None
+    telefono: Optional[str] = None
+    numero_documento: Optional[str] = None
 
 
 class UsuarioResponse(BaseModel):

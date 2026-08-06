@@ -5,7 +5,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models.base import (
-    Usuario, SoporteTicket, SoporteRespuesta, Empresa,
+    Usuario, SoporteTicket, SoporteRespuesta, Empresa, Rol,
 )
 from app.schemas.common import ApiResponse, PaginatedResponse
 from app.schemas.modulos import TicketCreate, TicketUpdate, TicketRespuestaCreate

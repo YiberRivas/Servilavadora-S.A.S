@@ -4,6 +4,8 @@ import { Text, Icon } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { repartidorService } from '../../src/services/repartidor.service';
 import { colors, radii, shadows } from '../../src/theme';
+import useNotifications from '../../src/hooks/useNotifications';
+import { useAuth } from '../../src/context/AuthContext';
 
 function AssignmentCard({ item, onPress }) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -13,11 +15,11 @@ function AssignmentCard({ item, onPress }) {
   }, []);
 
   const estadoColor = {
-    ASIGNADO: colors.warning || '#F59E0B',
-    EN_CAMINO: colors.accent,
-    ENTREGADO: colors.success || '#10B981',
-    EN_CURSO: colors.info || '#3B82F6',
-    PENDIENTE: colors.gray400,
+    PENDIENTE: colors.warning || '#F59E0B',
+    CAMINO: colors.accent,
+    ACTIVO: colors.success || '#10B981',
+    FINALIZACION: colors.info || '#3B82F6',
+    FINALIZADO: colors.gray400,
   }[item.estado] || colors.gray400;
 
   return (
@@ -64,12 +66,15 @@ function AssignmentCard({ item, onPress }) {
 
 export default function AssignmentsScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [assignments, setAssignments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [filter, setFilter] = useState(null);
+
+  const { lastNotification, clearLastNotification } = useNotifications(user?.uuid);
 
   const loadAssignments = useCallback(async (isRefresh = false, newPage = 1) => {
     try {
@@ -91,11 +96,19 @@ export default function AssignmentsScreen() {
     loadAssignments();
   }, [loadAssignments]);
 
+  useEffect(() => {
+    if (lastNotification && lastNotification._eventType === 'asignacion_servicio') {
+      loadAssignments(true);
+      clearLastNotification();
+    }
+  }, [lastNotification, clearLastNotification, loadAssignments]);
+
   const filters = [
     { label: 'Todos', value: null },
-    { label: 'Pendientes', value: 'ASIGNADO' },
-    { label: 'En curso', value: 'EN_CURSO' },
-    { label: 'Entregados', value: 'ENTREGADO' },
+    { label: 'Pendientes', value: 'PENDIENTE' },
+    { label: 'En camino', value: 'CAMINO' },
+    { label: 'Activos', value: 'ACTIVO' },
+    { label: 'Finalizados', value: 'FINALIZADO' },
   ];
 
   if (loading && assignments.length === 0) {

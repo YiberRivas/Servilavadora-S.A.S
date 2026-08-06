@@ -51,6 +51,10 @@ async def list_pagos(
                 ClienteEmpresa.estado == 1,
             )
         )
+    elif current_user.rol.codigo == "SUPER_ADMIN":
+        ce_result = await db.execute(
+            select(ClienteEmpresa).where(ClienteEmpresa.estado == 1)
+        )
     else:
         ce_result = await db.execute(
             select(ClienteEmpresa).where(
@@ -249,7 +253,7 @@ async def confirmar_pago(
         return ApiResponse(success=False, message="Pago no encontrado")
 
     estado_aprobado = (await db.execute(
-        select(EstadoPago).where(EstadoPago.codigo == "APROBADO")
+        select(EstadoPago).where(EstadoPago.codigo == "PAGADO")
     )).scalar_one_or_none()
 
     pago.id_estado_pago = estado_aprobado.id_estado_pago if estado_aprobado else pago.id_estado_pago
@@ -271,7 +275,7 @@ async def cancelar_pago(
         return ApiResponse(success=False, message="Pago no encontrado")
 
     estado_rechazado = (await db.execute(
-        select(EstadoPago).where(EstadoPago.codigo == "RECHAZADO")
+        select(EstadoPago).where(EstadoPago.codigo == "ANULADO")
     )).scalar_one_or_none()
 
     pago.id_estado_pago = estado_rechazado.id_estado_pago if estado_rechazado else pago.id_estado_pago

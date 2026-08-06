@@ -167,6 +167,7 @@ export default function ActiveServiceScreen() {
   }, [router, serviceData]);
 
   const handleRequestFinish = useCallback(() => {
+    if (!serviceData?.uuid) return;
     Alert.alert(
       'Solicitar finalizacion',
       'La empresa asignara un repartidor para recoger la lavadora. El servicio no finalizara hasta que la lavadora sea recogida.',
@@ -174,13 +175,19 @@ export default function ActiveServiceScreen() {
         { text: 'Cancelar', style: 'cancel' },
         {
           text: 'Solicitar',
-          onPress: () => {
-            Alert.alert('Solicitud enviada', 'La empresa ha sido notificada. Un repartidor se dirigira a tu ubicacion.');
+          onPress: async () => {
+            try {
+              await requestService.solicitarFinalizacion(serviceData.uuid);
+              Alert.alert('Solicitud enviada', 'La empresa ha sido notificada. Un repartidor se dirigira a tu ubicacion.');
+              router.back();
+            } catch (err) {
+              Alert.alert('Error', err.message || 'No se pudo enviar la solicitud');
+            }
           },
         },
       ]
     );
-  }, []);
+  }, [serviceData, router]);
 
   const handleBack = useCallback(() => {
     router.back();

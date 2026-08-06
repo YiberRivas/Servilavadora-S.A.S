@@ -236,6 +236,10 @@ export default function Usuarios() {
           id_rol: formData.id_rol,
           id_estado_usuario: formData.id_estado_usuario,
           estado: formData.id_estado_usuario === '1' ? 1 : 0,
+          nombre_completo: formData.nombre_completo,
+          correo: formData.correo,
+          telefono: formData.telefono,
+          numero_documento: formData.numero_documento,
         }
         const res = await api.put(`/usuarios/${editingUser.uuid}`, body)
         if (!res.success) {
@@ -249,6 +253,10 @@ export default function Usuarios() {
           id_persona: null,
           id_rol: formData.id_rol,
           id_estado_usuario: formData.id_estado_usuario || '1',
+          nombre_completo: formData.nombre_completo,
+          correo: formData.correo,
+          telefono: formData.telefono,
+          numero_documento: formData.numero_documento,
         }
         const res = await api.post('/usuarios', body)
         if (!res.success) {

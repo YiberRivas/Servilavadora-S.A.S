@@ -7,7 +7,9 @@ import { colors } from '../../src/theme';
 const tabs = [
   { name: 'index', label: 'Inicio', iconFocused: 'home', iconUnfocused: 'home-outline' },
   { name: 'assignments', label: 'Mis Entregas', iconFocused: 'clipboard', iconUnfocused: 'clipboard-outline' },
+  { name: 'gps', label: 'GPS', iconFocused: 'map', iconUnfocused: 'map-outline' },
   { name: 'history', label: 'Historial', iconFocused: 'time', iconUnfocused: 'time-outline' },
+  { name: 'notifications', label: 'Alertas', iconFocused: 'notifications', iconUnfocused: 'notifications-outline' },
   { name: 'profile', label: 'Perfil', iconFocused: 'person-circle', iconUnfocused: 'person-circle-outline' },
 ];
 

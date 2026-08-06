@@ -7,7 +7,7 @@ from sqlalchemy.orm import selectinload
 from app.database import async_session
 from app.models.base import (
     RutaGPS, Alquiler, Usuario, Repartidor,
-    ClienteEmpresa, SolicitudAlquiler, Empresa,
+    ClienteEmpresa, SolicitudAlquiler, Empresa, EmpleadoEmpresa,
 )
 from app.security.jwt import decode_token
 from app.utils.logging import get_logger
@@ -44,8 +44,14 @@ async def validate_ws_ruta_ownership(db, user_id: int, ruta):
         return True
 
     if rol_codigo == "ADMIN_EMPRESA":
+        emp_emp_result = await db.execute(
+            select(EmpleadoEmpresa).where(EmpleadoEmpresa.id_usuario == user.id_usuario)
+        )
+        emp_emp = emp_emp_result.scalars().first()
+        if not emp_emp:
+            return False
         empresa_result = await db.execute(
-            select(Empresa).where(Empresa.id_usuario == user.id_usuario)
+            select(Empresa).where(Empresa.id_empresa == emp_emp.id_empresa)
         )
         empresa = empresa_result.scalar_one_or_none()
         return empresa is not None and ruta.id_empresa == empresa.id_empresa
@@ -67,7 +73,14 @@ async def validate_ws_ruta_ownership(db, user_id: int, ruta):
         return cliente is not None and alquiler.id_cliente_empresa == cliente.id_cliente_empresa
 
     if rol_codigo == "REPARTIDOR":
-        return ruta.id_repartidor is not None and True
+        rep_result = await db.execute(
+            select(Repartidor).where(
+                Repartidor.id_usuario == user_id,
+                Repartidor.estado == 1,
+            )
+        )
+        rep = rep_result.scalar_one_or_none()
+        return rep is not None and ruta.id_repartidor == rep.id_repartidor
 
     return False
 

@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
   },
   logo: {
     width: 180,
-    height: 73,
+    height: 90,
     marginBottom: 28,
   },
   welcome: {

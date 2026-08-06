@@ -253,7 +253,7 @@ async def aprobar_empresa(
         return ApiResponse(success=False, message="Empresa no encontrada")
 
     estado_result = await db.execute(
-        select(EstadoEmpresa).where(EstadoEmpresa.codigo == "ACTIVA")
+        select(EstadoEmpresa).where(EstadoEmpresa.codigo == "ACTIVO")
     )
     estado = estado_result.scalar_one_or_none()
     if not estado:

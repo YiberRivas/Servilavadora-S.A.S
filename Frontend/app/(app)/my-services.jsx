@@ -9,6 +9,8 @@ import { colors, radii, shadows } from '../../src/theme';
 import { requestService } from '../../src/services/request.service';
 import AppButton from '../../src/components/ui/AppButton';
 import SkeletonCard from '../../src/components/ui/SkeletonCard';
+import useNotifications from '../../src/hooks/useNotifications';
+import { useAuth } from '../../src/context/AuthContext';
 
 const FILTER_OPTIONS = [
   { key: 'all', label: 'Todos' },
@@ -152,11 +154,11 @@ const ServiceCard = React.memo(function ServiceCard({ service, index, onViewDeta
         </View>
 
         <AppButton
-          title={service.status === 'en_uso' ? 'Abrir Mi Servicio Activo' : 'Ver detalles'}
+          title={service.status === 'lavadora_entregada' || service.status === 'en_uso' ? 'Abrir Mi Servicio Activo' : 'Ver detalles'}
           onPress={() => onViewDetail(service)}
-          variant={service.status === 'en_uso' ? 'primary' : 'outline'}
+          variant={service.status === 'lavadora_entregada' || service.status === 'en_uso' ? 'primary' : 'outline'}
           fullWidth
-          icon={service.status === 'en_uso' ? 'play-circle-outline' : 'eye-outline'}
+          icon={service.status === 'lavadora_entregada' || service.status === 'en_uso' ? 'play-circle-outline' : 'eye-outline'}
         />
       </TouchableOpacity>
     </Animated.View>
@@ -165,6 +167,7 @@ const ServiceCard = React.memo(function ServiceCard({ service, index, onViewDeta
 
 export default function MyServicesScreen() {
   const router = useRouter();
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
@@ -177,6 +180,8 @@ export default function MyServicesScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [services, setServices] = useState([]);
   const [error, setError] = useState(null);
+
+  const { lastNotification, clearLastNotification } = useNotifications(user?.uuid);
 
   const loadServices = useCallback(async () => {
     try {
@@ -202,13 +207,20 @@ export default function MyServicesScreen() {
     setRefreshing(false);
   }, [loadServices]);
 
+  useEffect(() => {
+    if (lastNotification && (lastNotification._eventType === 'servicio_asignado' || lastNotification._eventType === 'new_notification')) {
+      loadServices();
+      clearLastNotification();
+    }
+  }, [lastNotification, clearLastNotification, loadServices]);
+
   const statusCounts = useMemo(() => {
     const counts = { pendientes: 0, en_camino: 0, en_uso: 0, reservados: 0 };
     services.forEach((s) => {
       const st = s.status || '';
       if (['solicitud_enviada', 'pendiente', 'aceptada'].includes(st)) counts.pendientes++;
       else if (st === 'en_camino') counts.en_camino++;
-      else if (st === 'en_uso') counts.en_uso++;
+      else if (st === 'lavadora_entregada' || st === 'en_uso') counts.en_uso++;
       else if (st === 'programada') counts.reservados++;
     });
     return counts;
@@ -259,8 +271,7 @@ export default function MyServicesScreen() {
 
   const handleCancelService = useCallback(() => {
     setShowCancelModal(false);
-    setShowDetail(false);
-    Alert.alert('Servicio cancelado', 'Tu solicitud ha sido cancelada exitosamente.');
+    Alert.alert('Accion no disponible', 'La cancelacion de servicios no esta disponible en este momento. Contacta a la empresa directamente.');
   }, []);
 
   const handleNavigateActive = useCallback(() => {
@@ -555,10 +566,10 @@ export default function MyServicesScreen() {
                   )}
 
                   <View style={styles.detailActions}>
-                    {selectedService.status === 'en_uso' && (
+                    {(selectedService.status === 'lavadora_entregada' || selectedService.status === 'en_uso') && (
                       <AppButton title="Abrir Mi Servicio Activo" onPress={handleNavigateActive} variant="primary" fullWidth icon="play-circle-outline" />
                     )}
-                    {selectedService.status === 'en_uso' && (
+                    {(selectedService.status === 'lavadora_entregada' || selectedService.status === 'en_uso') && (
                       <AppButton title="Solicitar devolucion" onPress={handleSolicitarFinalizacion} variant="outline" fullWidth icon="calendar-clock" />
                     )}
                     {selectedService.puedeRastrear && (

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
-import { LayoutDashboard, Users, FileText, RefreshCw, Truck, CreditCard, Bell, LogOut, ChevronLeft } from 'lucide-react'
+import { LayoutDashboard, Users, FileText, RefreshCw, Truck, CreditCard, Bell, LogOut, ChevronLeft, WashingMachine } from 'lucide-react'
 import { useAuth } from '../../src/context/AuthContext'
 import styles from '../styles/components/AsideEmpresa.module.css'
 
@@ -9,6 +9,7 @@ const navItems = [
   { to: '/administrador-empresa/solicitudes', icon: FileText, label: 'Solicitudes' },
   { to: '/administrador-empresa/usuarios', icon: Users, label: 'Usuarios / Clientes' },
   { to: '/administrador-empresa/repartidores', icon: Truck, label: 'Repartidores' },
+  { to: '/administrador-empresa/lavadoras', icon: WashingMachine, label: 'Lavadoras' },
   { to: '/administrador-empresa/alquileres', icon: RefreshCw, label: 'Alquileres' },
   { to: '/administrador-empresa/pagos', icon: CreditCard, label: 'Pagos / Facturacion' },
   { to: '/administrador-empresa/notificaciones', icon: Bell, label: 'Notificaciones' },
@@ -43,9 +44,7 @@ export default function AsideEmpresa({ isOpen, onClose, onCollapsedChange }) {
           <div className={styles.sidebarHeader}>
             <div className={styles.logoGroup}>
               <div className={styles.logoIcon}>
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6" strokeDasharray="3 4"/><circle cx="12" cy="12" r="2" fill="currentColor"/>
-                </svg>
+                <img src="/favicon.png" alt="Servilavadora" style={{ height: 36, objectFit: 'contain' }} />
               </div>
               <div className={styles.logoSection}>
                 <span className={styles.logoName}>Servilavadora</span>

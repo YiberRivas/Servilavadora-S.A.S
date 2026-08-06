@@ -162,8 +162,8 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   logo: {
-    width: 140,
-    height: 56,
+    width: 180,
+    height: 90,
   },
   eyebrow: {
     paddingHorizontal: 14,

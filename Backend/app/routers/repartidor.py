@@ -80,14 +80,25 @@ async def get_dashboard(
         )
     )).scalar() or 0
 
-    kilometros = (await db.execute(
-        select(func.coalesce(func.sum(UbicacionRuta.velocidad), 0)).select_from(
-            UbicacionRuta
-        ).join(RutaGPS, RutaGPS.id_ruta_gps == UbicacionRuta.id_ruta_gps).where(
+    kilometros = 0
+    locs_result = await db.execute(
+        select(UbicacionRuta)
+        .join(RutaGPS, RutaGPS.id_ruta_gps == UbicacionRuta.id_ruta_gps)
+        .where(
             RutaGPS.id_repartidor == rep.id_repartidor,
             RutaGPS.estado == "FINALIZADA",
         )
-    )).scalar() or 0
+        .order_by(UbicacionRuta.id_ubicacion_ruta.asc())
+    )
+    ubicaciones = locs_result.scalars().all()
+    for i in range(1, len(ubicaciones)):
+        from math import radians, sin, cos, sqrt, atan2
+        lat1, lon1 = float(ubicaciones[i-1].latitud), float(ubicaciones[i-1].longitud)
+        lat2, lon2 = float(ubicaciones[i].latitud), float(ubicaciones[i].longitud)
+        dlat = radians(lat2 - lat1)
+        dlon = radians(lon2 - lon1)
+        a = sin(dlat/2)**2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon/2)**2
+        kilometros += 6371 * 2 * atan2(sqrt(a), sqrt(1-a))
 
     tiempo_rows = await db.execute(
         select(
@@ -114,7 +125,7 @@ async def get_dashboard(
         "entregasPendientes": pendientes,
         "entregasActivas": activos,
         "entregasFinalizadas": finalizados,
-        "kilometrosRecorridos": round(kilometros / 1000, 2) if kilometros else 0,
+        "kilometrosRecorridos": round(kilometros, 2),
         "tiempoTrabajado": tiempo_trabajado,
         "calificacion": 4.8,
         "disponibilidad": rep.disponible == 1,

@@ -293,7 +293,7 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   headerLeft: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  headerLogo: { width: 200, height: 150 },
+  headerLogo: { width: 120, height: 40 },
   headerRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   locationPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,

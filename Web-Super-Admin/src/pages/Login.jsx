@@ -50,11 +50,7 @@ export default function Login() {
         <div className={`${styles.blob} ${styles.blobTwo}`} />
 
         <a href="#" className={styles.logo}>
-          <svg viewBox="0 0 40 40" width="32" height="32" fill="none">
-            <circle cx="20" cy="20" r="19" stroke="currentColor" strokeWidth="2"/>
-            <circle cx="20" cy="20" r="12" stroke="currentColor" strokeWidth="2" strokeDasharray="4 5"/>
-            <circle cx="20" cy="20" r="5" fill="currentColor"/>
-          </svg>
+          <img src="/favicon.png" alt="Servilavadora" style={{ height: 40, objectFit: 'contain' }} />
           <span className={styles.logoText}>Servi<strong>Lavadora</strong></span>
         </a>
 
@@ -151,7 +147,6 @@ export default function Login() {
                 <input type="checkbox" />
                 Recordarme
               </label>
-              <a href="#" className="link">Olvidaste tu contrasena?</a>
             </div>
 
             <button

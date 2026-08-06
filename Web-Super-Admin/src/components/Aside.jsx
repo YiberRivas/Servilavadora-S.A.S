@@ -89,11 +89,7 @@ export default function Aside({ isOpen, onClose, onCollapsedChange }) {
           <div className={styles.sidebarHeader}>
             <div className={styles.logoGroup}>
               <div className={styles.logoIcon}>
-                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                  <circle cx="12" cy="12" r="10"/>
-                  <circle cx="12" cy="12" r="6" strokeDasharray="3 4"/>
-                  <circle cx="12" cy="12" r="2" fill="currentColor"/>
-                </svg>
+                <img src="/favicon.png" alt="Servilavadora" style={{ height: 36, objectFit: 'contain' }} />
               </div>
               <div className={styles.logoSection}>
                 <span className={styles.logoName}>Servilavadora</span>

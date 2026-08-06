@@ -45,13 +45,13 @@ export default function PagosFacturacion() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await getPagos({ per_page: 1000 })
+      const res = await getPagos({ per_page: 100 })
       if (res.success && res.data) {
         const all = res.data
         setStats({
-          ingresosMes: all.filter(p => (p.estado_codigo || p.estado) === 'pagado').reduce((s, p) => s + (p.valor || p.monto || 0), 0),
-          pendientes: all.filter(p => (p.estado_codigo || p.estado) === 'pendiente').length,
-          totalFacturado: all.reduce((s, p) => s + (p.valor || p.monto || 0), 0),
+          ingresosMes: all.filter(p => (p.estado_codigo || '').toUpperCase() === 'PAGADO').reduce((s, p) => s + (p.valor || 0), 0),
+          pendientes: all.filter(p => (p.estado_codigo || '').toUpperCase() === 'PENDIENTE').length,
+          totalFacturado: all.reduce((s, p) => s + (p.valor || 0), 0),
         })
       }
     } catch {}

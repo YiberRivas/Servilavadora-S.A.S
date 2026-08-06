@@ -6,7 +6,7 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.security.password import verify_password, hash_password
 from app.security.jwt import create_access_token, create_refresh_token, decode_token
-from app.models.base import Usuario, Sesion, RefreshToken, Persona, Rol, EstadoUsuario
+from app.models.base import Usuario, Sesion, RefreshToken, Persona, Rol, EstadoUsuario, TipoDocumento
 from app.schemas.auth import LoginRequest, TokenResponse, RefreshRequest, PasswordChangeRequest
 from app.schemas.common import ApiResponse
 
@@ -92,6 +92,8 @@ async def register(request: dict, db: AsyncSession = Depends(get_db)):
     email = request.get("email", "").strip()
     nombres = request.get("nombres", "").strip()
     apellidos = request.get("apellidos", "").strip()
+    numero_documento = request.get("numero_documento", "").strip()
+    id_tipo_documento = request.get("id_tipo_documento")
 
     if not username or not password:
         return ApiResponse(success=False, message="Username y password son requeridos")
@@ -108,8 +110,19 @@ async def register(request: dict, db: AsyncSession = Depends(get_db)):
     estado_result = await db.execute(select(EstadoUsuario).where(EstadoUsuario.codigo == "ACTIVO"))
     estado = estado_result.scalar_one_or_none()
 
+    if not id_tipo_documento:
+        td_result = await db.execute(select(TipoDocumento).where(TipoDocumento.codigo == "CC").limit(1))
+        td = td_result.scalar_one_or_none()
+        id_tipo_documento = td.id_tipo_documento if td else 1
+
+    if not numero_documento:
+        import uuid as uuid_mod
+        numero_documento = f"TEMP-{str(uuid_mod.uuid4())[:8]}"
+
     persona = Persona(
         uuid=generate_uuid(),
+        id_tipo_documento=id_tipo_documento,
+        numero_documento=numero_documento,
         nombres=nombres or username,
         apellidos=apellidos or "",
         correo=email,

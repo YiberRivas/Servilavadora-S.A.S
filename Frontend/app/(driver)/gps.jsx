@@ -59,7 +59,7 @@ export default function GpsTabScreen() {
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.rutaCard}
-              onPress={() => router.push(`/(modals)/driver-navigation?uuid=${item.alquiler_uuid}`)}
+              onPress={() => router.push(`/(modals)/driver-navigation?routeUuid=${item.uuid}`)}
               activeOpacity={0.7}
             >
               <View style={styles.rutaIcon}>

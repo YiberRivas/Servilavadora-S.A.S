@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { View, StyleSheet, ScrollView, TouchableOpacity, Animated, Dimensions, Platform, Keyboard, TextInput, ActivityIndicator, Alert } from 'react-native';
 import { Text, Icon } from 'react-native-paper';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import * as Location from 'expo-location';
 import { formatCurrency } from '../../src/utils/formatters';
 import { colors, radii, shadows } from '../../src/theme';
 import { companiesService } from '../../src/services/companies.service';
@@ -97,6 +98,8 @@ export default function RequestServiceScreen() {
   const [observations, setObservations] = useState('');
   const [confirmed, setConfirmed] = useState(false);
   const [errors, setErrors] = useState({});
+  const [locationCoords, setLocationCoords] = useState(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
 
   const isNow = requestType === 'now';
   const progress = ((step + 1) / STEPS.length) * 100;
@@ -168,6 +171,43 @@ export default function RequestServiceScreen() {
     setErrors({});
   }, []);
 
+  const handleUseCurrentLocation = useCallback(async () => {
+    try {
+      setIsGettingLocation(true);
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso requerido', 'Se necesita acceso a la ubicacion para usar esta funcion. Puede escribir la direccion manualmente.');
+        return;
+      }
+
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.High,
+        timeout: 15000,
+      });
+
+      const lat = location.coords.latitude;
+      const lon = location.coords.longitude;
+      setLocationCoords({ latitude: lat, longitude: lon });
+
+      const [geocoded] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lon });
+      if (geocoded) {
+        const parts = [];
+        if (geocoded.street) parts.push(geocoded.street);
+        if (geocoded.name && geocoded.name !== geocoded.street) parts.push(geocoded.name);
+        if (geocoded.district) parts.push(geocoded.district);
+        const address = parts.length > 0 ? parts.join(', ') : `${lat.toFixed(6)}, ${lon.toFixed(6)}`;
+        setCustomAddress(address);
+        setShowCustomAddress(true);
+        setSelectedAddress(null);
+        clearErrors();
+      }
+    } catch (err) {
+      Alert.alert('Error', 'No se pudo obtener la ubicacion. Verifique que el GPS este activo e intente de nuevo.');
+    } finally {
+      setIsGettingLocation(false);
+    }
+  }, [clearErrors]);
+
   const validateStep = useCallback((currentStep) => {
     const newErrors = {};
 
@@ -212,6 +252,8 @@ export default function RequestServiceScreen() {
         fecha_programada: fechaProgramada,
         direccion_entrega: finalAddress + (finalAddressDetails ? `, ${finalAddressDetails}` : ''),
         observaciones: observations,
+        latitud: locationCoords?.latitude || null,
+        longitud: locationCoords?.longitude || null,
       });
       setConfirmed(true);
     } catch (err) {
@@ -233,6 +275,10 @@ export default function RequestServiceScreen() {
   const handleGoToServices = useCallback(() => {
     router.back();
     setTimeout(() => router.push('/(app)/my-services'), 300);
+  }, [router]);
+
+  const handleVolverInicio = useCallback(() => {
+    router.replace('/(app)');
   }, [router]);
 
   const handleEditStep = useCallback((targetStep) => {
@@ -290,6 +336,7 @@ export default function RequestServiceScreen() {
           time={selectedTime}
           paymentMethod={paymentMethod}
           onGoToServices={handleGoToServices}
+          onVolverInicio={handleVolverInicio}
         />
       </View>
     );
@@ -445,13 +492,29 @@ export default function RequestServiceScreen() {
 
             {(showCustomAddress || savedAddresses.length === 0) && (
               <View style={[styles.customAddrWrap, { backgroundColor: colors.white }]}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={handleUseCurrentLocation}
+                  disabled={isGettingLocation}
+                  style={[styles.locationBtn, { backgroundColor: colors.accentTint, borderColor: colors.accent }]}
+                >
+                  {isGettingLocation ? (
+                    <ActivityIndicator size="small" color={colors.accent} />
+                  ) : (
+                    <Icon source="crosshairs-gps" size={20} color={colors.accent} />
+                  )}
+                  <Text style={[styles.locationBtnText, { color: colors.accent }]}>
+                    {isGettingLocation ? 'Obteniendo ubicacion...' : 'Usar ubicacion actual'}
+                  </Text>
+                </TouchableOpacity>
+
                 <Text style={styles.customAddrLabel}>Direccion principal</Text>
                 <TextInput
                   style={[styles.customAddrInput, { color: colors.gray900, borderColor: errors.address ? colors.error : colors.gray100 }]}
                   placeholder="Calle, carrera, avenida..."
                   placeholderTextColor={colors.gray400}
                   value={customAddress}
-                  onChangeText={(v) => { setCustomAddress(v); clearErrors(); }}
+                  onChangeText={(v) => { setCustomAddress(v); setLocationCoords(null); clearErrors(); }}
                 />
                 <Text style={[styles.customAddrLabel, { marginTop: 12 }]}>Detalles (opcional)</Text>
                 <TextInput
@@ -461,6 +524,11 @@ export default function RequestServiceScreen() {
                   value={customAddressDetails}
                   onChangeText={setCustomAddressDetails}
                 />
+                {locationCoords && (
+                  <Text style={[styles.locationCoordsText, { color: colors.gray400 }]}>
+                    GPS: {locationCoords.latitude.toFixed(6)}, {locationCoords.longitude.toFixed(6)}
+                  </Text>
+                )}
               </View>
             )}
             {errors.address && <Text style={styles.errorText}>{errors.address}</Text>}
@@ -697,7 +765,7 @@ export default function RequestServiceScreen() {
   );
 }
 
-function ConfirmedView({ company, capacity, address, date, time, paymentMethod, onGoToServices }) {
+function ConfirmedView({ company, capacity, address, date, time, paymentMethod, onGoToServices, onVolverInicio }) {
   const scaleAnim = useRef(new Animated.Value(0)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
@@ -751,7 +819,7 @@ function ConfirmedView({ company, capacity, address, date, time, paymentMethod, 
         </TouchableOpacity>
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={() => { }}
+          onPress={onVolverInicio}
           style={[styles.confirmedBtnSecondary, { borderColor: colors.gray100 }]}
         >
           <Text style={styles.confirmedBtnSecondaryText}>Volver al inicio</Text>
@@ -829,6 +897,9 @@ const styles = StyleSheet.create({
   customAddrWrap: { borderRadius: radii.md, padding: 12, ...shadows.sm },
   customAddrLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.blue900, marginBottom: 6 },
   customAddrInput: { height: 40, borderWidth: 1, borderRadius: radii.sm, paddingHorizontal: 12, fontFamily: 'Inter_400Regular', fontSize: 13 },
+  locationBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 12, borderRadius: radii.md, borderWidth: 1, marginBottom: 12 },
+  locationBtnText: { fontFamily: 'Inter_600SemiBold', fontSize: 13 },
+  locationCoordsText: { fontFamily: 'Inter_400Regular', fontSize: 11, marginTop: 8, textAlign: 'center' },
 
   todayBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10, paddingHorizontal: 14, borderRadius: radii.md, marginBottom: 14 },
   todayInfo: { flex: 1 },

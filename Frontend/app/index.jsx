@@ -17,11 +17,17 @@ export default function SplashScreen() {
       Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
       Animated.spring(scaleAnim, { toValue: 1, friction: 4, useNativeDriver: true }),
     ]).start();
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
 
     const timer = setTimeout(async () => {
       try {
         if (user) {
-          if (user.rol === 'REPARTIDOR') {
+          if (user.rol === 'ADMIN_EMPRESA') {
+            router.replace('/(admin)');
+          } else if (user.rol === 'REPARTIDOR') {
             router.replace('/(driver)');
           } else {
             router.replace('/(app)');
@@ -33,7 +39,7 @@ export default function SplashScreen() {
       } catch {
         router.replace('/welcome');
       }
-    }, 2000);
+    }, 1500);
 
     return () => clearTimeout(timer);
   }, [user, loading]);
@@ -65,8 +71,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: {
-    width: 160,
-    height: 65,
+    width: 220,
+    height: 110,
     marginBottom: 28,
   },
   title: {

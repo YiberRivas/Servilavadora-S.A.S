@@ -257,6 +257,64 @@ export default function DriverNavigationScreen() {
     }
   }, [routeData?.uuid, startLocationTracking]);
 
+  const handlePickup = useCallback(async () => {
+    if (!routeData?.uuid) return;
+    Alert.alert('Recoger lavadora', 'Selecciona el metodo de pago:', [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Efectivo',
+        onPress: async () => {
+          try {
+            const res = await routesService.pickupRoute(routeData.uuid, 'EFECTIVO');
+            if (res.success) {
+              stopLocationTracking();
+              setRouteData((prev) => ({ ...prev, estado: 'FINALIZADA', alquiler_estado: 'FINALIZADO' }));
+              Alert.alert('Lavadora recogida', 'Pago en efectivo registrado. Servicio finalizado.');
+            } else {
+              Alert.alert('Error', res.message || 'No se pudo registrar la recogida');
+            }
+          } catch (err) {
+            Alert.alert('Error', err.message || 'Error al recoger lavadora');
+          }
+        },
+      },
+      {
+        text: 'Tarjeta',
+        onPress: async () => {
+          try {
+            const res = await routesService.pickupRoute(routeData.uuid, 'TARJETA');
+            if (res.success) {
+              stopLocationTracking();
+              setRouteData((prev) => ({ ...prev, estado: 'FINALIZADA', alquiler_estado: 'FINALIZADO' }));
+              Alert.alert('Lavadora recogida', 'Pago con tarjeta registrado. Servicio finalizado.');
+            } else {
+              Alert.alert('Error', res.message || 'No se pudo registrar la recogida');
+            }
+          } catch (err) {
+            Alert.alert('Error', err.message || 'Error al recoger lavadora');
+          }
+        },
+      },
+      {
+        text: 'Cuenta',
+        onPress: async () => {
+          try {
+            const res = await routesService.pickupRoute(routeData.uuid, 'CUENTA');
+            if (res.success) {
+              stopLocationTracking();
+              setRouteData((prev) => ({ ...prev, estado: 'FINALIZADA', alquiler_estado: 'FINALIZADO' }));
+              Alert.alert('Lavadora recogida', 'Pago por cuenta registrado. Servicio finalizado.');
+            } else {
+              Alert.alert('Error', res.message || 'No se pudo registrar la recogida');
+            }
+          } catch (err) {
+            Alert.alert('Error', err.message || 'Error al recoger lavadora');
+          }
+        },
+      },
+    ]);
+  }, [routeData?.uuid, stopLocationTracking]);
+
   const handleFinish = useCallback(async () => {
     if (!routeData?.uuid) return;
     Alert.alert('Finalizar ruta', 'Esto finalizara el seguimiento GPS. Confirmar?', [
@@ -484,6 +542,15 @@ export default function DriverNavigationScreen() {
                   <Text style={styles.actionBtnText}>Entregar lavadora</Text>
                 </>
               )}
+            </TouchableOpacity>
+          )}
+          {isEnCurso && routeData?.alquiler_estado === 'FINALIZACION' && (
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: colors.warning || '#F59E0B' }]}
+              onPress={handlePickup}
+            >
+              <Icon source="package-return" size={20} color={colors.white} />
+              <Text style={styles.actionBtnText}>Recoger lavadora</Text>
             </TouchableOpacity>
           )}
           {isEnCurso && routeData?.alquiler_estado === 'ACTIVO' && (

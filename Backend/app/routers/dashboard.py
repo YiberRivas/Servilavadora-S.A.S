@@ -31,7 +31,7 @@ async def get_dashboard(
 async def _dashboard_global(db):
     total_empresas = (await db.execute(select(func.count(Empresa.id_empresa)))).scalar() or 0
     empresas_activas = (await db.execute(
-        select(func.count(Empresa.id_empresa)).join(EstadoEmpresa).where(EstadoEmpresa.codigo == "ACTIVA")
+        select(func.count(Empresa.id_empresa)).join(EstadoEmpresa).where(EstadoEmpresa.codigo == "ACTIVO")
     )).scalar() or 0
     empresas_pendientes = (await db.execute(
         select(func.count(Empresa.id_empresa)).join(EstadoEmpresa).where(EstadoEmpresa.codigo == "PENDIENTE")
@@ -126,7 +126,7 @@ async def _dashboard_empresa(db, empresa_id):
     lavadoras_en_uso = (await db.execute(
         select(func.count(Lavadora.id_lavadora))
         .join(EstadoLavadora, Lavadora.id_estado_lavadora == EstadoLavadora.id_estado_lavadora)
-        .where(Lavadora.id_empresa == empresa_id, Lavadora.estado == 1, EstadoLavadora.codigo == "EN_USO")
+        .where(Lavadora.id_empresa == empresa_id, Lavadora.estado == 1, EstadoLavadora.codigo == "ALQUILER")
     )).scalar() or 0
 
     total_solicitudes = (await db.execute(

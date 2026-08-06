@@ -46,8 +46,8 @@
       ]
     ],
     "extra": {
-      "apiBaseUrl": "http://172.16.30.129:8000",
-      "wsBaseUrl": "ws://172.16.30.129:8000",
+      "apiBaseUrl": "http://172.16.7.210:8000",
+      "wsBaseUrl": "ws://172.16.7.210:8000",
       "googleMapsApiKey": ""
     }
   }

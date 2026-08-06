@@ -10,7 +10,7 @@ from app.routers import (
     mantenimientos, cola_espera, tarifas, suscripciones,
     historial, public, pagos, repartidor,
 )
-from app.websockets import cronometro, rutas as ws_rutas
+from app.websockets import cronometro, rutas as ws_rutas, notifications
 from app.utils.logging import get_logger
 
 logger = get_logger(__name__)
@@ -63,6 +63,7 @@ app.include_router(pagos.router, prefix="/api")
 app.include_router(repartidor.router, prefix="/api")
 app.include_router(cronometro.router)
 app.include_router(ws_rutas.router)
+app.include_router(notifications.router)
 
 
 @app.get("/api/health", tags=["Health"])
